@@ -35,7 +35,7 @@ public class Metric extends AbstractVerticle {
   public void start() throws Exception {
 
     client = DatabaseConfig.getDatabaseClient(vertx);
-    router.get("/metric/:id").handler(this :: getMetricByDeviceType);
+//    router.get("/metric/:id").handler(this :: getMetricByDeviceType);
     router.get("/devicetype/metric/get/:id").handler(this::getMetricsForDeviceType);
     router.post("/metric/add").handler(this::addMetric);
 
@@ -139,22 +139,22 @@ public class Metric extends AbstractVerticle {
 
   private void getMetricsForDeviceType(RoutingContext routingContext) {
 
-    var deviceTypeId = routingContext.pathParam(VariableConstants.ID);
+    var deviceTypeId = Long.valueOf(routingContext.pathParam(VariableConstants.ID));
 
     client.preparedQuery("select * from NMS_METRIC WHERE devicetypeid = $1").execute(Tuple.of(deviceTypeId)).onSuccess(rows -> {
-
+      var metrics = new ArrayList<JsonObject>();
       rows.forEach(row -> {
-        var metrics = new ArrayList<JsonObject>();
 
-        metrics.add(new JsonObject().put(VariableConstants.METRIC_ID, DatabaseConstants.METRIC_ID)
-          .put(VariableConstants.ALERTABLE,DatabaseConstants.ALERTABLE)
-          .put(VariableConstants.METRIC_VALUE,DatabaseConstants.METRIC_VALUE)
-          .put(VariableConstants.NAME,DatabaseConstants.NAME));
 
-        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,metrics));
+        metrics.add(new JsonObject().put(VariableConstants.METRIC_ID,row.getLong(DatabaseConstants.METRIC_ID))
+          .put(VariableConstants.ALERTABLE,row.getBoolean(DatabaseConstants.ALERTABLE))
+          .put(VariableConstants.METRIC_VALUE,row.getString(DatabaseConstants.METRIC_VALUE))
+          .put(VariableConstants.NAME,row.getString( DatabaseConstants.NAME)));
+
       });
+      routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,metrics));
 
-    }).onFailure(err -> JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,err.getMessage()));
+    }).onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,err.getMessage())));
   }
 
 
