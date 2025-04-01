@@ -70,7 +70,7 @@ public class Monitor extends AbstractVerticle {
   }
 
   private void registerMonitorMapGetConsumer() {
-    vertx.eventBus().consumer(EventBusConstants.EVENT_MONITOR_MAP_GET, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_MONITOR_MAP_GET, message -> {
 
       JsonObject jsonMap = new JsonObject();
 
@@ -90,7 +90,7 @@ public class Monitor extends AbstractVerticle {
   }
 
   private void registerMonitorCheckPollConsumer() {
-    vertx.eventBus().consumer(EventBusConstants.EVENT_MONITOR_CHECK_POLL, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_MONITOR_CHECK_POLL, message -> {
 
       Long id = (Long) message.body();
 
@@ -105,7 +105,7 @@ public class Monitor extends AbstractVerticle {
   }
 
   private void registerRemainingIntervalResetConsumer() {
-    vertx.eventBus().consumer(EventBusConstants.EVENT_MONITOR_REMAINING_INTERVAL_RESET, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_MONITOR_REMAINING_INTERVAL_RESET, message -> {
       Long id = (Long) message.body();
       monitorHashmap.computeIfPresent(id, (key, value) -> {
         value.put(VariableConstants.REMAINING_INTERVAL, value.getLong(VariableConstants.POLLING_INTERVAL, 0L));
@@ -116,7 +116,7 @@ public class Monitor extends AbstractVerticle {
   }
 
   private void registerRemainingIntervalDecrementConsumer() {
-    vertx.eventBus().consumer(EventBusConstants.EVENT_MONITOR_REMAINING_INTERVAL_DECREMENT, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_MONITOR_REMAINING_INTERVAL_DECREMENT, message -> {
       Long id = (Long) message.body();
       monitorHashmap.computeIfPresent(id, (key, value) -> {
         value.put(VariableConstants.REMAINING_INTERVAL, value.getLong(VariableConstants.REMAINING_INTERVAL, 0L) -10L );
@@ -129,7 +129,7 @@ public class Monitor extends AbstractVerticle {
   }
 
   private void registerMonitorMapAddConsumer() {
-    vertx.eventBus().consumer(EventBusConstants.EVENT_MONITOR_MAP_ADD, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_MONITOR_MAP_ADD, message -> {
       var jsonObject = (JsonObject) message.body();
       monitorHashmap.put(jsonObject.getLong(VariableConstants.MONITOR_ID), jsonObject);
     });

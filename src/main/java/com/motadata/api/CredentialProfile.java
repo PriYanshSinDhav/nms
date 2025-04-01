@@ -64,7 +64,7 @@ public class CredentialProfile extends AbstractVerticle {
 
   private void createConsumerForCredentialId() {
 
-    vertx.eventBus().consumer(EventBusConstants.EVENT_GET_CREDENTIAL,message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_CREDENTIAL,message -> {
       var credentialId = (long) message.body();
       message.reply(CREDENTIALMAP.get(credentialId));
     });
@@ -85,7 +85,7 @@ public class CredentialProfile extends AbstractVerticle {
 
   private void consumerForCredentialProfile() {
 
-    vertx.eventBus().consumer(EventBusConstants.EVENT_GET_CREDENTIAL_PROFILE, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_CREDENTIAL_PROFILE, message -> {
       Long credentialId = (Long) message.body();
 
       client.preparedQuery(QUERY_SELECT_CREDENTIAL_BY_ID)

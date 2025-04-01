@@ -37,7 +37,7 @@ public class Profile extends AbstractVerticle {
     router.get("/profiles").handler(this::getAllProfiles);
     router.post("/get/profile").handler(this::getProfilesWithPagination);
 
-    vertx.eventBus().consumer(EventBusConstants.EVENT_GET_PROFILE, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_PROFILE, message -> {
       var profileId = (Long)message.body();
       message.reply(PROFILE_CACHE_MAP.get(profileId));
     });

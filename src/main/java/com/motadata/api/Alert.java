@@ -37,7 +37,7 @@ public class Alert extends AbstractVerticle {
     router.post("/alerts").handler(this::getAllAlerts);
 
 
-    vertx.eventBus().consumer(EventBusConstants.CHECK_AND_ADD_ALERT, message -> {
+    vertx.eventBus().localConsumer(EventBusConstants.CHECK_AND_ADD_ALERT, message -> {
 
       var jsonObject = (JsonObject) message.body();
       var profileId = jsonObject.getLong(VariableConstants.PROFILE_ID);

@@ -43,7 +43,7 @@ public class Metric extends AbstractVerticle {
 
     initializeMetricCacheMap();
 
-    vertx.eventBus().consumer(EventBusConstants.EVENT_GET_METRIC,handler -> {
+    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_METRIC,handler -> {
       var metricId = (Long)handler.body();
 
       var metricObject = METRIC_CACHE_MAP.get(metricId);
