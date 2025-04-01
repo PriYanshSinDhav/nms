@@ -1,14 +1,15 @@
 package com.motadata.api;
 
 import com.motadata.database.DatabaseConfig;
-import com.motadata.utility.EventBusConstants;
-import com.motadata.utility.VariableConstants;
+import com.motadata.utility.*;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,15 +19,22 @@ public class Alert extends AbstractVerticle {
 
   private static final Map<Long, Map<Long,JsonObject>> ALERT_CACHE_MAP = new ConcurrentHashMap();
 
+  private final  Router router;
+
   PgPool client ;
 
-  public Alert( ) {
+  public Alert(Router router) {
+    this.router = router;
   }
 
   @Override
   public void start() throws Exception {
 
+
     client = DatabaseConfig.getDatabaseClient(vertx);
+
+    router.post("/monitor/alerts").handler(this::getAlertDetailsByMonitorId);
+    router.post("/alerts").handler(this::getAllAlerts);
 
 
     vertx.eventBus().consumer(EventBusConstants.CHECK_AND_ADD_ALERT, message -> {
@@ -88,6 +96,98 @@ public class Alert extends AbstractVerticle {
     client.preparedQuery(ADD_ALERT_SQL).execute(Tuple.of(monitorId, profileId, level, value)).onSuccess(rows -> {
       System.out.println("Alert Added ");
     }).onFailure(err -> System.out.println("Error while adding alert reason " + err.getMessage()));
+  }
+
+
+  private void getAllAlerts(RoutingContext routingContext){
+
+    JsonObject requestBody = routingContext.body().asJsonObject();
+
+
+    Long pageNumber = requestBody.getLong(VariableConstants.PAGE_NUMBER);
+
+    Long pageSize = requestBody.getLong(VariableConstants.PAGE_SIZE);
+
+    Long profileId = requestBody.getLong(VariableConstants.PROFILE_ID);
+
+    String level = requestBody.getString("level");
+
+    var profileIdIsNUll = 1L;
+    if (profileId != null) {
+      profileIdIsNUll = 0L;
+    }
+
+    var levelIsNUll = 1L;
+    if (level != null && !level.isBlank()) {
+      levelIsNUll = 0L;
+    }
+
+
+    String sql = "SELECT n.alertid , n.monitorid , n.profileid , n.level , n.timestamp ,n.value , p.name as profilename, m.ipaddress   FROM NMS_ALERT n join NMS_MONITOR m ON n.monitorid = m.monitorid join NMS_PROFILE p on n.profileid = p.profileid  WHERE  (1 = $5 OR n.profileid = $1)  and (1 = $6 or n.level = $2)  ORDER BY timestamp desc LIMIT $3  OFFSET $4 ";
+
+    client.preparedQuery(sql).execute(Tuple.of(profileId,level,pageSize,pageNumber*pageSize,profileIdIsNUll,levelIsNUll))
+      .onSuccess(rows -> {
+        var alertDetails = new ArrayList<JsonObject>();
+
+        rows.forEach(row-> {
+          alertDetails.add(new JsonObject()
+            .put(VariableConstants.ALERT_ID,row.getLong(DatabaseConstants.ALERT_ID))
+            .put(VariableConstants.MONITOR_ID,row.getLong(DatabaseConstants.MONITOR_ID))
+            .put(VariableConstants.IP_ADDRESS,row.getString(DatabaseConstants.IP_ADDRESS))
+            .put(VariableConstants.ALERT_LEVEL,row.getString(DatabaseConstants.ALERT_LEVEL))
+            .put(VariableConstants.VALUE,row.getLong(DatabaseConstants.VALUE))
+            .put(VariableConstants.GENERATED_AT,row.getValue(DatabaseConstants.TIMESTAMP).toString())
+            .put(VariableConstants.PROFILE_NAME,row.getString(DatabaseConstants.PROFILE_NAME))
+
+          );
+        });
+
+        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,alertDetails));
+
+
+      })
+      .onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error fetching alert details reason :- " + err.getMessage())));
+
+  }
+
+  private void getAlertDetailsByMonitorId(RoutingContext routingContext){
+
+    JsonObject requestBody = routingContext.body().asJsonObject();
+
+
+    Long pageNumber = requestBody.getLong(VariableConstants.PAGE_NUMBER);
+
+    Long pageSize = requestBody.getLong(VariableConstants.PAGE_SIZE);
+
+    Long monitorId = requestBody.getLong(VariableConstants.MONITOR_ID);
+
+    String level = requestBody.getString("level");
+
+    String sql = "SELECT * , n.profileid as profileid , p.name as profilename FROM NMS_ALERT n JOIN NMS_PROFILE p on n.profileid = p.profileid  WHERE  n.monitorid = $1 and n.level = $2 ORDER BY timestamp desc  LIMIT $3  OFFSET $4";
+
+    client.preparedQuery(sql).execute(Tuple.of(monitorId,level,pageSize,pageNumber*pageSize))
+      .onSuccess(rows -> {
+
+        var alertDetails = new ArrayList<JsonObject>();
+
+        rows.forEach(row-> {
+          alertDetails.add(new JsonObject()
+            .put(VariableConstants.ALERT_ID,row.getLong(DatabaseConstants.ALERT_ID))
+            .put(VariableConstants.PROFILE_ID,row.getLong(DatabaseConstants.PROFILE_ID))
+            .put(VariableConstants.PROFILE_NAME,row.getString(DatabaseConstants.PROFILE_NAME))
+            .put(VariableConstants.ALERT_LEVEL,row.getString(DatabaseConstants.ALERT_LEVEL))
+            .put(VariableConstants.VALUE,row.getLong(DatabaseConstants.VALUE))
+            .put(VariableConstants.GENERATED_AT,row.getValue(DatabaseConstants.TIMESTAMP).toString())
+
+          );
+        });
+
+        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,alertDetails));
+
+
+      })
+      .onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error fetching alert details reason :- " + err.getMessage())));
+
   }
 
 

@@ -33,15 +33,18 @@ public class Profile extends AbstractVerticle {
 
     client = DatabaseConfig.getDatabaseClient(vertx);
 
+    router.post("/profile").handler(this:: createProfile);
+    router.get("/profiles").handler(this::getAllProfiles);
+    router.post("/get/profile").handler(this::getProfilesWithPagination);
+
     vertx.eventBus().consumer(EventBusConstants.EVENT_GET_PROFILE, message -> {
       var profileId = (Long)message.body();
       message.reply(PROFILE_CACHE_MAP.get(profileId));
     });
 
 
-    router.post("/profile").handler(this:: createProfile);
-    router.get("/profile").handler(this::getAllProfiles);
-    router.post("/get/profile").handler(this::getProfilesWithPagination);
+
+
 
     addProfilesToCache();
 
@@ -60,9 +63,8 @@ public class Profile extends AbstractVerticle {
 
       rows.forEach(row -> profiles.add(new JsonObject()
         .put(VariableConstants.PROFILE_ID,row.getLong(DatabaseConstants.PROFILE_ID))
-        .put(VariableConstants.NAME,row.getLong(DatabaseConstants.NAME))
+        .put(VariableConstants.NAME,row.getString(DatabaseConstants.NAME))
         .put(VariableConstants.METRIC_VALUE,row.getString(DatabaseConstants.METRIC_VALUE))
-        .put(VariableConstants.ALERTABLE,row.getBoolean(DatabaseConstants.ALERTABLE))
         .put(VariableConstants.ALERT_LEVEL_1,row.getLong(DatabaseConstants.ALERT_LEVEL_1))
         .put(VariableConstants.ALERT_LEVEL_2,row.getLong(DatabaseConstants.ALERT_LEVEL_2))
         .put(VariableConstants.ALERT_LEVEL_3,row.getLong(DatabaseConstants.ALERT_LEVEL_3))
@@ -70,7 +72,7 @@ public class Profile extends AbstractVerticle {
 
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,profiles));
 
-    }).onFailure(err-> JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,ResponseConstants.ERROR_MSG));
+    }).onFailure(err-> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,ResponseConstants.ERROR_MSG)));
 
 
   }
@@ -98,9 +100,8 @@ public class Profile extends AbstractVerticle {
 
       rows.forEach(row -> profiles.add(new JsonObject()
         .put(VariableConstants.PROFILE_ID,row.getLong(DatabaseConstants.PROFILE_ID))
-          .put(VariableConstants.NAME,row.getLong(DatabaseConstants.NAME))
+          .put(VariableConstants.NAME,row.getString(DatabaseConstants.NAME))
           .put(VariableConstants.METRIC_VALUE,row.getString(DatabaseConstants.METRIC_VALUE))
-          .put(VariableConstants.ALERTABLE,row.getBoolean(DatabaseConstants.ALERTABLE))
           .put(VariableConstants.ALERT_LEVEL_1,row.getLong(DatabaseConstants.ALERT_LEVEL_1))
           .put(VariableConstants.ALERT_LEVEL_2,row.getLong(DatabaseConstants.ALERT_LEVEL_2))
           .put(VariableConstants.ALERT_LEVEL_3,row.getLong(DatabaseConstants.ALERT_LEVEL_3))
@@ -108,7 +109,7 @@ public class Profile extends AbstractVerticle {
 
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,profiles));
 
-    }).onFailure(err -> JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, err.getMessage()));
+    }).onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, err.getMessage())));
 
   }
 

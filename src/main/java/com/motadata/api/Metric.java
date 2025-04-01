@@ -38,6 +38,7 @@ public class Metric extends AbstractVerticle {
     router.get("/metric/:id").handler(this :: getMetricByDeviceType);
     router.get("/devicetype/metric/get/:id").handler(this::getMetricsForDeviceType);
     router.post("/metric/add").handler(this::addMetric);
+
 //    router.post("").handler(this::getMetricWithPagination);
 
     initializeMetricCacheMap();

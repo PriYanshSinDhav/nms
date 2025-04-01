@@ -26,4 +26,12 @@ public class DatabaseConstants {
   public static final String ALERT_LEVEL_2 = "alertlevel2";
   public static final String ALERT_LEVEL_3 = "alertlevel3";
   public static final String PROFILE_NAME = "profilename";
+  public static final String REMARKS = "remarks";
+  public static final String DISCOVERED = "discovered";
+
+
+  public static final String ALERT_ID = "alertid";
+  public static final String ALERT_LEVEL = "level";
+  public static final String VALUE = "value";
+  public static final String TIMESTAMP = "timestamp";
 }

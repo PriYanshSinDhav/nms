@@ -44,4 +44,6 @@ public class VariableConstants {
 
   public static final String REMARKS = "remarks";
   public static final String PROFILE_NAME = "profileName";
+  public static final String ALERT_ID = "alertId";
+  public static final String GENERATED_AT = "generatedAt";
 }

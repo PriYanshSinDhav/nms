@@ -30,7 +30,7 @@ public class MainVerticle extends AbstractVerticle {
       .compose(id -> vertx.deployVerticle(new Device(router)))
       .compose(id-> vertx.deployVerticle(new Monitor(router)))
       .compose(id-> vertx.deployVerticle(new Profile(router)))
-      .compose(id-> vertx.deployVerticle(new Alert()))
+      .compose(id-> vertx.deployVerticle(new Alert(router)))
       .compose(id -> vertx.deployVerticle(new Metric(router)))
       .compose(id-> vertx.deployVerticle(new MonitorProfileRel(router)))
       .compose(id -> vertx.deployVerticle(new PollingVerticle()))

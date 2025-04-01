@@ -16,13 +16,14 @@ import io.vertx.sqlclient.Tuple;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.List;
 
 
 public class Device extends AbstractVerticle {
 
   private static final String GET_DEVICE_BY_ID_SQL = "select * from NMS_DEVICE WHERE deviceid = $1";
   private static final String GET_MONITOR_BY_IP_SQL = "select * from NMS_MONITOR where ipaddress = $1";
-  private static final String GET_ALL_DEVICES = "SELECT d.deviceid , d.ipaddress ,dt.name , d.discovered , d.remarks FROM NMS_DEVICE d join ncm_devicetype dt on d.devicetypeid = dt.devicetypeid ";
+  private static final String GET_ALL_DEVICES = "SELECT d.deviceid , d.ipaddress ,dt.name , d.discovered , d.remarks , d.devicetypeid FROM NMS_DEVICE d join ncm_devicetype dt on d.devicetypeid = dt.devicetypeid ";
 
 
   private static final String GET_ALL_DEVICES_PAGINATION =  "SELECT d.deviceid , d.ipaddress ,dt.name , d.discovered , d.remarks FROM NMS_DEVICE d join ncm_devicetype dt on d.devicetypeid = dt.devicetypeid WHERE (1 = $1 OR d.discovered = $2 ) LIMIT $3 OFFSET $4";
@@ -30,16 +31,6 @@ public class Device extends AbstractVerticle {
   private final Router router;
   PgPool client;
 
-
-  private static final String CREDENTIAL_ID = "credentialid";
-  private static final String IP_ADDRESS = "ipaddress";
-  private static final String MONITOR_ID = "monitorid";
-  private static final String DISCOVERED = "discovered";
-
-  private static final String DEVICE_ID = "deviceid";
-
-  private static final String NAME = "name";
-  private static final String REMARKS = "remarks";
 
 
   private static final String ADD_MONITOR_SQL = "INSERT INTO NMS_MONITOR (credentialid,ipaddress,pollinginterval, createdon) VALUES ($1,$2,$3,CURRENT_TIMESTAMP) returning monitorid";
@@ -61,11 +52,6 @@ public class Device extends AbstractVerticle {
     router.post("/create/device").handler(this::createDiscoverDevice);
     router.get("/devices").handler(this::getDevicesWithoutPagination);
     router.post("/devices").handler(this::getDevicesWithPagination);
-
-
-//    router.getRoutes().forEach(route ->
-//      System.out.println("Configured Route: " + route.getPath())
-//    );
 
 
   }
@@ -100,11 +86,11 @@ public class Device extends AbstractVerticle {
 
         var devices = new ArrayList<JsonObject>();
         rows.forEach(row -> devices.add(new JsonObject()
-          .put(VariableConstants.DEVICE_ID,row.getLong(DEVICE_ID))
-          .put(VariableConstants.IP_ADDRESS,row.getString(IP_ADDRESS))
-          .put(VariableConstants.DEVICE_TYPE_NAME,row.getString(NAME))
-          .put(VariableConstants.DEVICE_DISCOVERED,row.getBoolean(DISCOVERED))
-          .put(VariableConstants.REMARKS,row.getString(REMARKS))
+          .put(VariableConstants.DEVICE_ID,row.getLong(DatabaseConstants.DEVICE_ID))
+          .put(VariableConstants.IP_ADDRESS,row.getString(DatabaseConstants.IP_ADDRESS))
+          .put(VariableConstants.DEVICE_TYPE_NAME,row.getString(DatabaseConstants.NAME))
+          .put(VariableConstants.DEVICE_DISCOVERED,row.getBoolean(DatabaseConstants.DISCOVERED))
+          .put(VariableConstants.REMARKS,row.getString(DatabaseConstants.REMARKS))
 
         ));
 
@@ -121,11 +107,12 @@ public class Device extends AbstractVerticle {
 
         var devices = new ArrayList<JsonObject>();
         rows.forEach(row -> devices.add(new JsonObject()
-          .put(VariableConstants.DEVICE_ID,row.getLong(DEVICE_ID))
-          .put(VariableConstants.IP_ADDRESS,row.getString(IP_ADDRESS))
-          .put(VariableConstants.DEVICE_TYPE_NAME,row.getString(NAME))
-          .put(VariableConstants.DEVICE_DISCOVERED,row.getBoolean(DISCOVERED))
-          .put(VariableConstants.REMARKS,row.getString(REMARKS))
+          .put(VariableConstants.DEVICE_ID,row.getLong(DatabaseConstants.DEVICE_ID))
+          .put(VariableConstants.IP_ADDRESS,row.getString(DatabaseConstants.IP_ADDRESS))
+          .put(VariableConstants.DEVICE_TYPE_NAME,row.getString(DatabaseConstants.NAME))
+          .put(VariableConstants.DEVICE_DISCOVERED,row.getBoolean(DatabaseConstants.DISCOVERED))
+          .put(VariableConstants.REMARKS,row.getString(DatabaseConstants.REMARKS))
+          .put(VariableConstants.DEVICE_TYPE_ID,row.getLong(DatabaseConstants.DEVICE_TYPE_ID))
 
         ));
 
@@ -162,8 +149,8 @@ public class Device extends AbstractVerticle {
       if (result.iterator().hasNext()) {
         var deviceObject = result.iterator().next();
 
-        var credentialId = deviceObject.getValue(CREDENTIAL_ID);
-        var ipAddress = deviceObject.getValue(IP_ADDRESS);
+        var credentialId = deviceObject.getValue(DatabaseConstants.CREDENTIAL_ID);
+        var ipAddress = deviceObject.getValue(DatabaseConstants.IP_ADDRESS);
 
         client.preparedQuery(GET_MONITOR_BY_IP_SQL).execute(Tuple.of(ipAddress)).compose(rows->{
           if (rows.iterator().hasNext()) {
@@ -173,7 +160,7 @@ public class Device extends AbstractVerticle {
 
         }).compose(v-> client.preparedQuery(ADD_MONITOR_SQL).execute(Tuple.of(credentialId,ipAddress,pollingInterval))).onSuccess(rows -> {
 
-            var monitorId = rows.iterator().next().getValue(MONITOR_ID);
+            var monitorId = rows.iterator().next().getValue(DatabaseConstants.MONITOR_ID);
 
             routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,monitorId));
 
@@ -202,7 +189,7 @@ public class Device extends AbstractVerticle {
   }
 
 
-  private void getAlertDetails(RoutingContext routingContext){
+  private void getAlertDetailsByMetricId(RoutingContext routingContext){
 
     JsonObject requestBody = routingContext.body().asJsonObject();
 
@@ -211,13 +198,73 @@ public class Device extends AbstractVerticle {
 
     Long pageSize = requestBody.getLong(VariableConstants.PAGE_SIZE);
 
-      Long metricId = requestBody.getLong(VariableConstants.METRIC_ID);
+    Long profileId = requestBody.getLong(VariableConstants.PROFILE_ID);
 
-    Long level = requestBody.getLong("level");
+    String level = requestBody.getString("level");
 
-    String sql = "SELECT * FROM NMS_ALERT n WHERE  n.metricid = $1 and n.cleared = false and n.level = $2   LIMIT $3  OFFSET $4";
+    String sql = "SELECT * ,n.monitorid as monitorid  FROM NMS_ALERT n join NMS_MONITOR m ON n.monitorid = m.monitorid WHERE  n.profileid = $1 and n.level = $2 ORDER BY timestamp desc   LIMIT $3  OFFSET $4 ";
 
-    client.preparedQuery(sql).execute(Tuple.of(metricId,level,pageSize,pageNumber*pageSize));
+    client.preparedQuery(sql).execute(Tuple.of(profileId,level,pageSize,pageNumber*pageSize))
+      .onSuccess(rows -> {
+        var alertDetails = new ArrayList<JsonObject>();
+
+        rows.forEach(row-> {
+          alertDetails.add(new JsonObject()
+            .put(VariableConstants.ALERT_ID,DatabaseConstants.ALERT_ID)
+            .put(VariableConstants.MONITOR_ID,DatabaseConstants.MONITOR_ID)
+            .put(VariableConstants.IP_ADDRESS,DatabaseConstants.IP_ADDRESS)
+            .put(VariableConstants.ALERT_LEVEL,DatabaseConstants.ALERT_LEVEL)
+            .put(VariableConstants.VALUE,DatabaseConstants.VALUE)
+            .put(VariableConstants.GENERATED_AT,DatabaseConstants.TIMESTAMP)
+
+          );
+        });
+
+        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,alertDetails));
+
+
+      })
+      .onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error fetching alert details reason :- " + err.getMessage())));
+
+  }
+
+  private void getAlertDetailsByMonitorId(RoutingContext routingContext){
+
+    JsonObject requestBody = routingContext.body().asJsonObject();
+
+
+    Long pageNumber = requestBody.getLong(VariableConstants.PAGE_NUMBER);
+
+    Long pageSize = requestBody.getLong(VariableConstants.PAGE_SIZE);
+
+    Long monitorId = requestBody.getLong(VariableConstants.MONITOR_ID);
+
+    String level = requestBody.getString("level");
+
+    String sql = "SELECT * , n.profileid as profileid , p.name as profilename FROM NMS_ALERT n JOIN NMS_PROFILE p on n.profileid = p.profileid  WHERE  n.monitorid = $1 and n.level = $2 ORDER BY timestamp desc  LIMIT $3  OFFSET $4";
+
+    client.preparedQuery(sql).execute(Tuple.of(monitorId,level,pageSize,pageNumber*pageSize))
+      .onSuccess(rows -> {
+
+        var alertDetails = new ArrayList<JsonObject>();
+
+        rows.forEach(row-> {
+          alertDetails.add(new JsonObject()
+            .put(VariableConstants.ALERT_ID,DatabaseConstants.ALERT_ID)
+            .put(VariableConstants.PROFILE_ID,DatabaseConstants.PROFILE_ID)
+            .put(VariableConstants.PROFILE_NAME,DatabaseConstants.PROFILE_NAME)
+            .put(VariableConstants.ALERT_LEVEL,DatabaseConstants.ALERT_LEVEL)
+            .put(VariableConstants.VALUE,DatabaseConstants.VALUE)
+            .put(VariableConstants.GENERATED_AT,DatabaseConstants.TIMESTAMP)
+
+          );
+        });
+
+        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,alertDetails));
+
+
+      })
+      .onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error fetching alert details reason :- " + err.getMessage())));
 
   }
 

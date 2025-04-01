@@ -51,7 +51,7 @@ public class Monitor extends AbstractVerticle {
 
     registerEventBusConsumers();
 
-    router.get().handler(this::getDevicesForAlertMonitoring);
+//    router.get().handler(this::getDevicesForAlertMonitoring);
 
   }
 
