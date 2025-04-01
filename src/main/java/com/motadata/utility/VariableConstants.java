@@ -43,4 +43,5 @@ public class VariableConstants {
   public static final String PROFILE = "profile";
 
   public static final String REMARKS = "remarks";
+  public static final String PROFILE_NAME = "profileName";
 }

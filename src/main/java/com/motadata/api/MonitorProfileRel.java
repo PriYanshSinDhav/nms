@@ -1,9 +1,7 @@
 package com.motadata.api;
 
 import com.motadata.database.DatabaseConfig;
-import com.motadata.utility.EventBusConstants;
-import com.motadata.utility.JsonObjectUtility;
-import com.motadata.utility.ResponseConstants;
+import com.motadata.utility.*;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -12,13 +10,16 @@ import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MonitorProfileRel extends AbstractVerticle {
 
+  private static final String ADD_MONITOR_PROFILE_REL_SQL = "INSERT INTO nms_monitor_profile (monitorid , profileid) values ($1,$2) ";
+  private static final String GET_MONITOR_PROFILE_REL_SQL = "select * from nms_monitor_profile " ;
+    private static final String GET_ALL_PROFILES_BY_MONITOR_SQL = "select p.name as profilename from nms_monitor_profile mp join nms_profile p on mp.profileid = p.profileid where mp.monitorid = $1";
+  private static final String GET_ALL_MONITORS_BY_PROFILE_SQL = "select p.ipaddress as ipaddress  from nms_monitor_profile mp join nms_monitor m on mp.monitorid = m.monitorid where mp.profileid = $1";
   private final Router router;
 
   private static Map<Long,List<Long>> monitorProfileRel = new ConcurrentHashMap<>();
@@ -60,7 +61,7 @@ public class MonitorProfileRel extends AbstractVerticle {
 
     var requestBody = routingContext.body().asJsonObject();
 
-    var profileId = requestBody.getLong("profileid");
+    var profileId = requestBody.getLong(VariableConstants.PROFILE_ID);
 
     List<Long> monitors = requestBody.getJsonArray("monitorIds").getList();
 
@@ -75,9 +76,8 @@ public class MonitorProfileRel extends AbstractVerticle {
       batch.add(Tuple.of(monitorId,profileId));
     }
 
-    String sql = "INSERT INTO nms_monitor_profile (monitorid , profileid) values ($1,$2) ";
 
-    client.preparedQuery(sql).executeBatch(batch).onSuccess(res-> {
+    client.preparedQuery(ADD_MONITOR_PROFILE_REL_SQL).executeBatch(batch).onSuccess(res-> {
 
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG));
       addProfilesToCache( monitors,profileId);
@@ -92,7 +92,7 @@ public class MonitorProfileRel extends AbstractVerticle {
 
     var requestBody = routingContext.body().asJsonObject();
 
-    var monitorId = requestBody.getLong("monitorid");
+    var monitorId = requestBody.getLong(DatabaseConstants.MONITOR_ID);
 
     List<Long> profiles = requestBody.getJsonArray("profileIds").getList();
 
@@ -107,9 +107,8 @@ public class MonitorProfileRel extends AbstractVerticle {
       batch.add(Tuple.of(monitorId,profile));
     }
 
-    String sql = "INSERT INTO nms_monitor_profile (monitorid , profileid) values ($1,$2) ";
 
-    client.preparedQuery(sql).executeBatch(batch).onSuccess(res-> {
+    client.preparedQuery(ADD_MONITOR_PROFILE_REL_SQL).executeBatch(batch).onSuccess(res-> {
 
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG));
 
@@ -121,11 +120,11 @@ public class MonitorProfileRel extends AbstractVerticle {
   }
 
   private void addProfilesToCache() {
-    client.preparedQuery("select * from nms_monitor_profile ").execute().onSuccess(res->{
+    client.preparedQuery(GET_MONITOR_PROFILE_REL_SQL).execute().onSuccess(res->{
 
       res.forEach(row -> {
 
-        monitorProfileRel.computeIfAbsent(row.getLong("monitorid"),value -> new ArrayList<>()).add(row.getLong("profileid"));
+        monitorProfileRel.computeIfAbsent(row.getLong(DatabaseConstants.MONITOR_ID),value -> new ArrayList<>()).add(row.getLong(DatabaseConstants.PROFILE_ID));
 
       });
 
@@ -152,13 +151,13 @@ public class MonitorProfileRel extends AbstractVerticle {
 
   private void getProfilesByMonitorId(RoutingContext routingContext) {
 
-    var monitorId = routingContext.pathParam("id");
+    var monitorId = routingContext.pathParam(VariableConstants.ID);
 
-    client.preparedQuery("select p.name as profileName from nms_monitor_profile mp join nms_profile p on mp.profileid = p.profileid where mp.monitorid = $1")
+    client.preparedQuery(GET_ALL_PROFILES_BY_MONITOR_SQL)
       .execute(Tuple.of(monitorId))
       .onSuccess(rows -> {
         var profiles = new ArrayList<JsonObject>();
-        rows.forEach(row -> profiles.add(new JsonObject().put("profileName",row.getValue("profileName"))));
+        rows.forEach(row -> profiles.add(new JsonObject().put(VariableConstants.PROFILE_NAME,row.getValue(DatabaseConstants.PROFILE_NAME))));
 
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,profiles));
       })
@@ -169,14 +168,14 @@ public class MonitorProfileRel extends AbstractVerticle {
 
   private void getMonitorsByProfileId(RoutingContext routingContext) {
 
-    var profileId = routingContext.pathParam("id");
+    var profileId = routingContext.pathParam(VariableConstants.ID);
 
 
-    client.preparedQuery("select p.ipaddress as ipaddress  from nms_monitor_profile mp join nms_monitor m on mp.monitorid = m.monitorid where mp.profileid = $1")
+    client.preparedQuery(GET_ALL_MONITORS_BY_PROFILE_SQL)
       .execute(Tuple.of(profileId))
       .onSuccess(rows -> {
         var profiles = new ArrayList<JsonObject>();
-        rows.forEach(row -> profiles.add(new JsonObject().put("ipaddress",row.getValue("ipaddress"))));
+        rows.forEach(row -> profiles.add(new JsonObject().put(VariableConstants.IP_ADDRESS,row.getValue(DatabaseConstants.IP_ADDRESS))));
 
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,profiles));
       })
