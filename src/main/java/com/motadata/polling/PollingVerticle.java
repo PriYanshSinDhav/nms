@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class PollingVerticle extends AbstractVerticle {
 
+  private static final String ADD_MONITORING_DATA_SQL = "INSERT INTO NMS_MONITORING(monitorid,value,updatedon) VALUES ($1,$2,CURRENT_TIMESTAMP)";
   PgPool client;
 
   private ZContext zContext;
@@ -104,10 +105,9 @@ public class PollingVerticle extends AbstractVerticle {
     System.out.println("Received response: " + response);
 
     try {
-
 //      JsonObject jsonObject = new JsonObject(response);
 
-      client.preparedQuery("INSERT INTO NMS_MONITORING(monitorid,value,updatedon) VALUES ($1,$2,CURRENT_TIMESTAMP)")
+      client.preparedQuery( ADD_MONITORING_DATA_SQL )
         .execute(Tuple.of(monitorId,response))
         .onSuccess(rows -> {
           System.out.println("monitoring done for monitorid " + monitorId);
@@ -156,34 +156,6 @@ public class PollingVerticle extends AbstractVerticle {
       .put(VariableConstants.PROFILE,profileObject)
       .put(VariableConstants.VALUE,longValue.longValue()));
 
-
-//    if (longValue.longValue() >= profileObject.getLong(VariableConstants.ALERT_LEVEL_3)) {
-//
-//        vertx.eventBus().request(EventBusConstants.CHECK_AND_ADD_ALERT,new JsonObject()
-//          .put(VariableConstants.MONITOR_ID,monitorId)
-//          .put(VariableConstants.PROFILE_ID,profileId)
-//          .put(VariableConstants.ALERT_LEVEL,VariableConstants.CRITICAL)
-//          .put(VariableConstants.VALUE,longValue.longValue()));
-//    }
-//    else if (longValue.longValue() >= profileObject.getLong(VariableConstants.ALERT_LEVEL_2)) {
-//      vertx.eventBus().request(EventBusConstants.CHECK_AND_ADD_ALERT,new JsonObject()
-//        .put(VariableConstants.MONITOR_ID,monitorId)
-//        .put(VariableConstants.PROFILE_ID,profileId)
-//        .put(VariableConstants.ALERT_LEVEL,VariableConstants.SEVERE)
-//        .put(VariableConstants.VALUE,longValue.longValue()));
-//
-//    }
-//    else if (longValue.longValue() >= profileObject.getLong(VariableConstants.ALERT_LEVEL_1)) {
-//      vertx.eventBus().request(EventBusConstants.CHECK_AND_ADD_ALERT,new JsonObject()
-//        .put(VariableConstants.MONITOR_ID,monitorId)
-//        .put(VariableConstants.PROFILE_ID,profileId)
-//        .put(VariableConstants.ALERT_LEVEL,VariableConstants.WARNINIG)
-//        .put(VariableConstants.VALUE,longValue.longValue()));
-//
-//    }else {
-//
-//      // check here if alert is there for this profile and if and if it is at any level than update if normal than do nothing
-//    }
 
   }
 

@@ -146,8 +146,8 @@ public class Device extends AbstractVerticle {
       return;
     }
 
-    var deviceId = requestBody.getLong("deviceId");
-    var pollingInterval = requestBody.getLong("pollingInterval");
+    var deviceId = requestBody.getLong(VariableConstants.DEVICE_ID);
+    var pollingInterval = requestBody.getLong(VariableConstants.POLLING_INTERVAL);
 
     if(deviceId == null){
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Please select device to provision device"));
@@ -221,20 +221,6 @@ public class Device extends AbstractVerticle {
 
   }
 
-  private void getMonitoringDetails(RoutingContext routingContext){
-
-
-    JsonObject requestBody = routingContext.body().asJsonObject();
-
-    Long metricId = requestBody.getLong(VariableConstants.METRIC_ID);
-
-//    Long
-
-
-    String sql = "";
-//    client.preparedQuery(sql,Tuple.of())
-
-  }
 
   private void createDiscoverDevice(RoutingContext routingContext) {
 

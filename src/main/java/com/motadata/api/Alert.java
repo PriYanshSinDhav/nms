@@ -6,7 +6,6 @@ import com.motadata.utility.VariableConstants;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
 
@@ -16,14 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Alert extends AbstractVerticle {
 
   private static final String ADD_ALERT_SQL = "INSERT INTO NMS_ALERT (monitorid,profileid,level,value) values ($1,$2,$3,$4)";
-  private final Router router;
 
   private static final Map<Long, Map<Long,JsonObject>> ALERT_CACHE_MAP = new ConcurrentHashMap();
 
   PgPool client ;
 
-  public Alert(Router router) {
-    this.router = router;
+  public Alert( ) {
   }
 
   @Override
@@ -45,7 +42,6 @@ public class Alert extends AbstractVerticle {
       processAlert(monitorAlertMap, profileId, monitorId, value, profileObject);
     });
 
-//    router.get().handler(this::insertAlert);
 
   }
 
@@ -94,7 +90,5 @@ public class Alert extends AbstractVerticle {
     }).onFailure(err -> System.out.println("Error while adding alert reason " + err.getMessage()));
   }
 
-  private void checkAlert(){
 
-  }
 }

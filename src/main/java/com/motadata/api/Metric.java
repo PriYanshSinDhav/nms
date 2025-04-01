@@ -138,7 +138,7 @@ public class Metric extends AbstractVerticle {
 
   private void getMetricsForDeviceType(RoutingContext routingContext) {
 
-    var deviceTypeId = routingContext.pathParam("id");
+    var deviceTypeId = routingContext.pathParam(VariableConstants.ID);
 
     client.preparedQuery("select * from NMS_METRIC WHERE devicetypeid = $1").execute(Tuple.of(deviceTypeId)).onSuccess(rows -> {
 

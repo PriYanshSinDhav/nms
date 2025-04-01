@@ -30,10 +30,6 @@ public class MonitorProfileRel extends AbstractVerticle {
     this.router = router;
   }
 
-  public static Map<Long,List<Long>>  getMonitorProfileRelMap(){
-
-    return monitorProfileRel;
-  }
 
 
   @Override
@@ -48,12 +44,16 @@ public class MonitorProfileRel extends AbstractVerticle {
 
     addProfilesToCache();
 
+    addEventBusConsumers();
+
+  }
+
+  private void addEventBusConsumers() {
+
     vertx.eventBus().consumer(EventBusConstants.GET_PROFILES_FOR_MONITOR,message -> {
       var monitorId = (Long)message.body();
       message.reply(monitorProfileRel.get(monitorId));
     });
-
-
 
   }
 
