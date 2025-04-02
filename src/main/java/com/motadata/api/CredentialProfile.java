@@ -18,24 +18,27 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CredentialProfile extends AbstractVerticle {
 
   private static final String GET_CREDENTIAL_PAGE_SQL = "SELECT * FROM NMS_CREDENTIALS LIMIT $1 OFFSET $2";
+
   PgPool client ;
-    private final Router router;
 
-    private static final Map<Long,JsonObject> CREDENTIALMAP = new ConcurrentHashMap<>();
+  private final Router router;
 
+  private static final Map<Long,JsonObject> CREDENTIALMAP = new ConcurrentHashMap<>();
 
   private static final String RESPONSE_CREDENTIAL_NOT_FOUND = "Credential Profile not found";
+
   private static final String RESPONSE_CREDENTIAL_DOES_NOT_EXIST = "Credential Profile does not exist";
 
-
   private static final String QUERY_SELECT_ALL_CREDENTIALS = "SELECT * FROM NMS_CREDENTIALS";
+
   private static final String QUERY_SELECT_CREDENTIAL_BY_ID = "SELECT * FROM NMS_CREDENTIALS WHERE id = $1";
+
   private static final String QUERY_INSERT_CREDENTIAL = "INSERT INTO NMS_CREDENTIALS(USERNAME,PASSWORD) VALUES ($1,$2) RETURNING id";
+
   private static final String QUERY_UPDATE_CREDENTIAL = "UPDATE NMS_CREDENTIALS SET USERNAME = $2 , PASSWORD = $3 WHERE id = $1 RETURNING id";
 
-  public CredentialProfile(Router router){
-
-  this.router = router;
+  public CredentialProfile(Router router) {
+    this.router = router;
   }
 
   @Override

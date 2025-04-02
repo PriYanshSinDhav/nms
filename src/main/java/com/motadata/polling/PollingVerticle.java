@@ -5,6 +5,7 @@ import com.motadata.utility.EventBusConstants;
 import com.motadata.utility.VariableConstants;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
@@ -105,7 +106,6 @@ public class PollingVerticle extends AbstractVerticle {
     System.out.println("Received response: " + response);
 
     try {
-//      JsonObject jsonObject = new JsonObject(response);
 
       client.preparedQuery( ADD_MONITORING_DATA_SQL )
         .execute(Tuple.of(monitorId,response))
@@ -126,8 +126,6 @@ public class PollingVerticle extends AbstractVerticle {
               checkAlert(recoredeValue,profileObject,monitorId,profile);
 
               System.out.println("recorded value " + recoredeValue);
-              // compare this value and than generate alert
-//            vertx.eventBus().request(EventBusConstants.ADD_ALERT,"");
             });
           }
 
