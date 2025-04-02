@@ -1,10 +1,7 @@
 package com.motadata.api;
 
 import com.motadata.database.DatabaseConfig;
-import com.motadata.utility.EventBusConstants;
-import com.motadata.utility.JsonObjectUtility;
-import com.motadata.utility.ResponseConstants;
-import com.motadata.utility.VariableConstants;
+import com.motadata.utility.*;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -24,14 +21,6 @@ public class Monitor extends AbstractVerticle {
   PgPool client;
 
   private static final String QUERY_GET_ALL_MONITORS = "SELECT * FROM NMS_MONITOR";
-
-  private static final String CREDENTIAL_ID = "credentialid";
-
-  private static final String IP_ADDRESS = "ipaddress";
-
-  private static final String POLLING_INTERVAL = "pollinginterval";
-
-  private static final String MONITOR_ID = "monitorid";
 
   private static final  Map<Long , JsonObject> monitorHashmap = new ConcurrentHashMap<>();
 
@@ -152,12 +141,12 @@ public class Monitor extends AbstractVerticle {
 
   }
   private static void accept(Row r) {
-    monitorHashmap.put(r.getLong(MONITOR_ID),
+    monitorHashmap.put(r.getLong(DatabaseConstants.MONITOR_ID),
       new JsonObject()
-        .put(VariableConstants.CREDENTIAL_ID, r.getValue(CREDENTIAL_ID))
-        .put(VariableConstants.IP_ADDRESS, r.getValue(IP_ADDRESS))
-        .put(VariableConstants.POLLING_INTERVAL, r.getValue(POLLING_INTERVAL))
-        .put(VariableConstants.REMAINING_INTERVAL, r.getValue(POLLING_INTERVAL))
+        .put(VariableConstants.CREDENTIAL_ID, r.getValue(DatabaseConstants.CREDENTIAL_ID))
+        .put(VariableConstants.IP_ADDRESS, r.getValue(DatabaseConstants.IP_ADDRESS))
+        .put(VariableConstants.POLLING_INTERVAL, r.getValue(DatabaseConstants.POLLING_INTERVAL))
+        .put(VariableConstants.REMAINING_INTERVAL, r.getValue(DatabaseConstants.POLLING_INTERVAL))
     );
   }
 

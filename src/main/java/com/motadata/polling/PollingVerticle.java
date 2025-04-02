@@ -165,7 +165,7 @@ public class PollingVerticle extends AbstractVerticle {
 
 
   private String fetchMetricsFromZMQ(String ip, String username ,String password) {
-    socket.send(new JsonObject().put("ip",ip).put("username",username).put("password",password).encode());
+    socket.send(new JsonObject().put("ip",ip).put(VariableConstants.USERNAME,username).put(VariableConstants.PASSWORD,password).encode());
 //    System.out.println("socket output " + socket.recvStr());
     return socket.recvStr();
   }

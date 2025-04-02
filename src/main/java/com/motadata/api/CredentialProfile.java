@@ -208,9 +208,9 @@ public class CredentialProfile extends AbstractVerticle {
       .onSuccess(res ->{
         List<JsonObject> credentialProfiles = new ArrayList<>();
         res.forEach(e -> credentialProfiles.add(new JsonObject()
-          .put(VariableConstants.ID,e.getValue(VariableConstants.ID))
-          .put(VariableConstants.USERNAME,e.getValue(VariableConstants.USERNAME))
-          .put(VariableConstants.PASSWORD,e.getValue(VariableConstants.PASSWORD))
+          .put(VariableConstants.ID,e.getValue(DatabaseConstants.ID))
+          .put(VariableConstants.USERNAME,e.getValue(DatabaseConstants.USERNAME))
+          .put(VariableConstants.PASSWORD,e.getValue(DatabaseConstants.PASSWORD))
         ));
         routingContext.json(credentialProfiles);
 
@@ -227,9 +227,9 @@ public class CredentialProfile extends AbstractVerticle {
       .onSuccess(res ->{
         List<JsonObject> credentialProfiles = new ArrayList<>();
         res.forEach(e -> credentialProfiles.add(new JsonObject()
-          .put(VariableConstants.ID,e.getValue(VariableConstants.ID))
-          .put(VariableConstants.USERNAME,e.getValue(VariableConstants.USERNAME))
-          .put(VariableConstants.PASSWORD,e.getValue(VariableConstants.PASSWORD))
+          .put(VariableConstants.ID,e.getValue(DatabaseConstants.ID))
+          .put(VariableConstants.USERNAME,e.getValue(DatabaseConstants.USERNAME))
+          .put(VariableConstants.PASSWORD,e.getValue(DatabaseConstants.PASSWORD))
         ));
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,credentialProfiles));
 
