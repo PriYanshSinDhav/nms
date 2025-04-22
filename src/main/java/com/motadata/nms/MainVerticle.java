@@ -10,11 +10,12 @@ import io.vertx.ext.web.handler.BodyHandler;
 public class MainVerticle {
 
 
+  private static Vertx vertx = Vertx.vertx();
 
   public static void main(String[] args) {
-    Vertx vertx = Vertx.vertx();
 
-    Router router = Router.router(vertx);
+
+    Router router = Router.router(getVertx());
 
     router.route().handler(BodyHandler.create());
 
@@ -30,5 +31,9 @@ public class MainVerticle {
       .onFailure(err-> System.out.println(err));
 
 
+  }
+
+  public static Vertx getVertx(){
+    return vertx;
   }
 }

@@ -4,6 +4,7 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.motadata.cache.CacheStore;
 import com.motadata.database.DatabaseConfig;
+import com.motadata.nms.MainVerticle;
 import com.motadata.polling.PollingVerticle;
 import com.motadata.utility.*;
 import io.vertx.core.AbstractVerticle;
@@ -256,7 +257,7 @@ public class Device  {
 
   private void checkDeviceAccessible(String ipAddress, Long credentialId ,Long deviceTypeId, RoutingContext routingContext) {
 
-    PollingVerticle.pingIPAddress(ipAddress).onComplete(pingFuture-> {
+    pingIPAddress(ipAddress).onComplete(pingFuture-> {
       if (pingFuture.succeeded()) {
         if(pingFuture.result()){
 
@@ -267,7 +268,7 @@ public class Device  {
             String password = credentialProfile.getString(VariableConstants.PASSWORD);
 
 
-            PollingVerticle.checkLogin(username,ipAddress,password).onComplete(future-> {
+            checkLogin(username,ipAddress,password).onComplete(future-> {
 
               if (future.succeeded() && future.result()) {
                 insertDiscoverDevice(credentialId,ipAddress,"Success",true,routingContext,deviceTypeId);
@@ -350,6 +351,50 @@ public class Device  {
   }
 
 
+  private  Future<Boolean> pingIPAddress(String ipAdress) {
+      var vertx = MainVerticle.getVertx();
+
+
+    Promise<Boolean> resultPromise = Promise.promise();
+    vertx.executeBlocking(promise -> {
+      try {
+        InetAddress inetAddress = InetAddress.getByName(ipAdress);
+        boolean reachable = inetAddress.isReachable(3000);
+        resultPromise.complete(reachable);
+      } catch (Exception e) {
+        System.out.println(e);
+        resultPromise.fail(e);
+      }
+    }, resultPromise);
+
+    return resultPromise.future();
+  }
+
+  private  Future<Boolean> checkLogin(String username, String ip, String password) {
+    Promise<Boolean> resultPromise = Promise.promise();
+
+    var vertx = MainVerticle.getVertx();
+
+
+    vertx.executeBlocking(promise -> {
+
+      try {
+        JSch jsch = new JSch();
+        Session session = jsch.getSession(username, ip, 22);
+        session.setPassword(password);
+        session.setConfig("StrictHostKeyChecking", "no");
+        session.connect(3000);
+        session.disconnect();
+        promise.complete(true);
+      } catch (Exception e) {
+        System.out.println(e);
+        promise.fail(e);
+      }
+    }, resultPromise);
+
+    return resultPromise.future();
+
+  }
 
 }
 

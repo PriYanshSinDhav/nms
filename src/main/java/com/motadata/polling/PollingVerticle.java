@@ -211,49 +211,8 @@ public class PollingVerticle extends AbstractVerticle {
     return socket.recvStr();
   }
 
-  public static Future<Boolean> checkLogin(String username, String ip, String password) {
-    Promise<Boolean> resultPromise = Promise.promise();
-
-    var vertx = thisvertx;
-    vertx.executeBlocking(promise -> {
-
-      try {
-        JSch jsch = new JSch();
-        Session session = jsch.getSession(username, ip, 22);
-        session.setPassword(password);
-        session.setConfig("StrictHostKeyChecking", "no");
-        session.connect(3000);
-        session.disconnect();
-        promise.complete(true);
-      } catch (Exception e) {
-        System.out.println(e);
-        promise.fail(e);
-      }
-    }, resultPromise);
-
-    return resultPromise.future();
-
-  }
-
-
-  public static Future<Boolean> pingIPAddress(String ipAdress) {
-    var vertx = thisvertx;
-
-
-    Promise<Boolean> resultPromise = Promise.promise();
-    vertx.executeBlocking(promise -> {
-      try {
-        InetAddress inetAddress = InetAddress.getByName(ipAdress);
-        boolean reachable = inetAddress.isReachable(3000);
-        resultPromise.complete(reachable);
-      } catch (Exception e) {
-        System.out.println(e);
-        resultPromise.fail(e);
-      }
-    }, resultPromise);
-
-    return resultPromise.future();
-  }
 
 
 }
+
+
