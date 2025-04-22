@@ -22,14 +22,12 @@ public class APIServer extends AbstractVerticle {
   }
 
   @Override
-  public void start() throws Exception {
-    super.start();
+  public void start()  {
+
     this.client = DatabaseConfig.getDatabaseClient(vertx);
+
     addRouters();
   }
-
-
-
 
   private void addRouters() {
     var credentialRouter = Router.router(vertx);
@@ -49,18 +47,14 @@ public class APIServer extends AbstractVerticle {
     router.route("/monitorprofile/*").subRouter(monitorProfileRelRouter);
     router.route("/device/*").subRouter(deviceRouter);
 
-    new CredentialProfile().init(credentialRouter,client);
-    new DeviceType().init(deviceTypeRouter,client);
-    new Profile().init(profileRouter,client);
-    new Alert().init(alertRouter,client);
-    new Metric().init(metricRouter,client);
-    new Device().init(deviceRouter,client);
+    new CredentialProfile().init(credentialRouter, client);
+    new DeviceType().init(deviceTypeRouter, client);
+    new Profile().init(profileRouter, client);
+    new Alert().init(alertRouter, client);
+    new Metric().init(metricRouter, client);
+    new Device().init(deviceRouter, client);
 
   }
-
-
-
-
 
 
 }
