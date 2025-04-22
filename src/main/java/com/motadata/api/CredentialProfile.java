@@ -1,8 +1,7 @@
 package com.motadata.api;
 
-import com.motadata.database.DatabaseConfig;
+import com.motadata.cache.CacheStore;
 import com.motadata.utility.*;
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -12,105 +11,47 @@ import io.vertx.sqlclient.Tuple;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import static com.motadata.constants.QueryConstants.*;
 
-public class CredentialProfile extends AbstractVerticle {
+public class CredentialProfile  {
 
   private static final String GET_CREDENTIAL_PAGE_SQL = "SELECT * FROM NMS_CREDENTIALS LIMIT $1 OFFSET $2";
 
   PgPool client ;
 
-  private final Router router;
 
-  private static final Map<Long,JsonObject> CREDENTIALMAP = new ConcurrentHashMap<>();
 
-  private static final String RESPONSE_CREDENTIAL_NOT_FOUND = "Credential Profile not found";
+  public static final String RESPONSE_CREDENTIAL_NOT_FOUND = "Credential Profile not found";
 
-  private static final String RESPONSE_CREDENTIAL_DOES_NOT_EXIST = "Credential Profile does not exist";
+  public static final String RESPONSE_CREDENTIAL_DOES_NOT_EXIST = "Credential Profile does not exist";
 
-  private static final String QUERY_SELECT_ALL_CREDENTIALS = "SELECT * FROM NMS_CREDENTIALS";
 
-  private static final String QUERY_SELECT_CREDENTIAL_BY_ID = "SELECT * FROM NMS_CREDENTIALS WHERE id = $1";
-
-  private static final String QUERY_INSERT_CREDENTIAL = "INSERT INTO NMS_CREDENTIALS(USERNAME,PASSWORD) VALUES ($1,$2) RETURNING id";
-
-  private static final String QUERY_UPDATE_CREDENTIAL = "UPDATE NMS_CREDENTIALS SET USERNAME = $2 , PASSWORD = $3 WHERE id = $1 RETURNING id";
-
-  public CredentialProfile(Router router) {
-    this.router = router;
+  public CredentialProfile() {
   }
 
-  @Override
   public void start() throws Exception {
-    this.client =  DatabaseConfig.getDatabaseClient(vertx);
 
 
-    createRouters();
 
-    consumerForCredentialProfile();
-
-    addCredentialProfilesToMap();
-
-    createConsumerForCredentialId();
 
 
   }
 
-  private void createRouters() {
-    router.post("/credential").handler(this::createCredentialProfile);
-    router.post("/get/credential").handler(this::getAllCredentialProfiles);
-    router.get("/credential").handler(this::getAllCredentialProfilesWithoutPagination);
-    router.post("/credential/update/:id").handler(this::updateCredentialProfile);
-    router.get("/credential/:id").handler(this::getCredentialProfileById);
-  }
-
-  private void createConsumerForCredentialId() {
-
-    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_CREDENTIAL,message -> {
-      var credentialId = (long) message.body();
-      message.reply(CREDENTIALMAP.get(credentialId));
-    });
-  }
-
-  private void addCredentialProfilesToMap() {
-
-    client.preparedQuery(QUERY_SELECT_ALL_CREDENTIALS).execute()
-      .onSuccess(rows -> {
-        rows.forEach(row -> CREDENTIALMAP.put(row.getLong(DatabaseConstants.ID),
-          new JsonObject().put(VariableConstants.USERNAME, row.getValue(VariableConstants.USERNAME))
-          .put(VariableConstants.PASSWORD, row.getValue(VariableConstants.PASSWORD)
-          )));
-
-      });
-  }
-
-
-  private void consumerForCredentialProfile() {
-
-    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_CREDENTIAL_PROFILE, message -> {
-      Long credentialId = (Long) message.body();
-
-      client.preparedQuery(QUERY_SELECT_CREDENTIAL_BY_ID)
-        .execute(Tuple.of(credentialId))
-        .onSuccess(result -> {
-          if (result.size() > 0) {
-            Row row = result.iterator().next();
-            JsonObject credentialProfile = new JsonObject()
-              .put(VariableConstants.ID,row.getValue(VariableConstants.ID))
-              .put(VariableConstants.USERNAME,row.getValue(VariableConstants.USERNAME))
-              .put(VariableConstants.PASSWORD,row.getValue(VariableConstants.PASSWORD));
-
-            message.reply(credentialProfile); // Send response to DiscoverDeviceVerticle
-          } else {
-            message.fail(404, "Credential not found");
-          }
-        })
-        .onFailure(err -> message.fail(500, err.getMessage()));
-    });
-
+  public void init(Router router,PgPool client) {
+    this.client = client;
+    router.post("/create").handler(this::createCredentialProfile);
+    router.post("/get").handler(this::getAllCredentialProfiles);
+    router.get("/all").handler(this::getAllCredentialProfilesWithoutPagination);
+    router.post("/update/:id").handler(this::updateCredentialProfile);
+    router.get("/:id").handler(this::getCredentialProfileById);
 
   }
+
+
+
+
+
+
 
   private void getCredentialProfileById(RoutingContext routingContext) {
 
@@ -151,7 +92,7 @@ public class CredentialProfile extends AbstractVerticle {
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Invalid Data : username and password required to update credential profile"));
     }
 
-    client.preparedQuery(QUERY_UPDATE_CREDENTIAL).execute(Tuple.of(id,requestBody.getString(username),requestBody.getString(password)))
+    client.preparedQuery(QUERY_UPDATE_CREDENTIAL).execute(Tuple.of(id,username,password))
       .onSuccess(res -> {
 
         if (!res.iterator().hasNext()) {
@@ -159,7 +100,9 @@ public class CredentialProfile extends AbstractVerticle {
           return;
         }
         routingContext.json(JsonObjectUtility.
-          getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,new JsonObject().put("id",res.iterator().next().getValue("id"))));
+          getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,new JsonObject().put(VariableConstants.ID,res.iterator().next().getValue(DatabaseConstants.ID))));
+
+      CacheStore.updateCredentialProfile(res.iterator().next().getLong(DatabaseConstants.ID),new JsonObject().put(VariableConstants.USERNAME,username).put(VariableConstants.PASSWORD,password));
       }).onFailure( err ->
         routingContext.json( JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,ResponseConstants.ERROR_MSG))
       );
@@ -182,9 +125,10 @@ public class CredentialProfile extends AbstractVerticle {
       .onSuccess( res -> {
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,
           res.iterator().next().getInteger(DatabaseConstants.ID)));
-        CREDENTIALMAP.put(Long.valueOf(res.iterator().next().getInteger(DatabaseConstants.ID)),
-          new JsonObject().put(VariableConstants.USERNAME, username)
-            .put(VariableConstants.PASSWORD,password));
+
+        CacheStore.addCredentialProfile(res.iterator().next().getLong(DatabaseConstants.ID), new JsonObject().put(VariableConstants.USERNAME, username)
+          .put(VariableConstants.PASSWORD,password));
+
       })
       .onFailure(err -> routingContext.fail(500 , err));
 

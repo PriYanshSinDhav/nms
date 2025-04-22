@@ -7,7 +7,6 @@ public class EventBusConstants {
   public static final String EVENT_GET_CREDENTIAL = "credential.get";
 
   public static final String EVENT_MONITOR_MAP_GET = "monitor.map.get";
-  public static final String EVENT_MONITOR_REMAINING_INTERVAL_GET = "monitor.remainingInterval.get";
   public static final String EVENT_MONITOR_CHECK_POLL = "monitor.check.poll";
   public static final String EVENT_MONITOR_REMAINING_INTERVAL_RESET = "monitor.remainingInterval.reset";
   public static final String EVENT_MONITOR_REMAINING_INTERVAL_DECREMENT = "monitor.remainingInterval.decrement";

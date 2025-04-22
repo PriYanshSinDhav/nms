@@ -1,11 +1,14 @@
 package com.motadata.polling;
 
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
+import com.motadata.cache.CacheStore;
 import com.motadata.database.DatabaseConfig;
-import com.motadata.utility.EventBusConstants;
 import com.motadata.utility.VariableConstants;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
@@ -14,9 +17,10 @@ import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.net.InetAddress;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+
+import static com.motadata.constants.QueryConstants.ADD_ALERT_SQL;
 
 public class PollingVerticle extends AbstractVerticle {
 
@@ -25,11 +29,13 @@ public class PollingVerticle extends AbstractVerticle {
 
   private ZContext zContext;
   private ZMQ.Socket socket;
+  private static Vertx thisvertx;
 
   @Override
   public void start() throws Exception {
 
 
+    thisvertx = getVertx();
     client = DatabaseConfig.getDatabaseClient(vertx);
     zContext = new ZContext();
     socket = zContext.createSocket(SocketType.REQ);
@@ -40,33 +46,23 @@ public class PollingVerticle extends AbstractVerticle {
     });
 
 
-
   }
 
   private void fetchMonitorMap() {
-    vertx.eventBus().request(EventBusConstants.EVENT_MONITOR_MAP_GET, "", reply -> {
-      if (reply.succeeded()) {
-        JsonObject jsonMap = new JsonObject(reply.result().body().toString());
-        processMonitorMap(jsonMap);
-      }
-    });
-  }
 
-  private void processMonitorMap(JsonObject jsonMap) {
-    Map<Long, JsonObject> monitorMap = new ConcurrentHashMap<>();
-    jsonMap.forEach(entry -> monitorMap.put(Long.valueOf(entry.getKey()), (JsonObject) entry.getValue()));
-
+    System.out.println("in fetch monitor map");
+    Map<Long, JsonObject> monitorMap = CacheStore.getAllMonitors();
     monitorMap.forEach(this::handleMonitorEntry);
+
   }
+
 
   private void handleMonitorEntry(Long monitorId, JsonObject monitorData) {
-    vertx.eventBus().request(EventBusConstants.EVENT_MONITOR_CHECK_POLL, monitorId, check -> {
-      if (check.succeeded() && (boolean) check.result().body()) {
-        processPolling(monitorId, monitorData);
-      } else {
-        decrementPollingInterval(monitorId);
-      }
-    });
+    if (CacheStore.shouldPoll(monitorId)) {
+      processPolling(monitorId, monitorData);
+    } else {
+      decrementPollingInterval(monitorId);
+    }
   }
 
   private void processPolling(Long monitorId, JsonObject monitorData) {
@@ -74,13 +70,17 @@ public class PollingVerticle extends AbstractVerticle {
   }
 
   private void fetchCredential(Long monitorId, JsonObject monitorData) {
-    vertx.eventBus().request(EventBusConstants.EVENT_GET_CREDENTIAL, monitorData.getLong(VariableConstants.CREDENTIAL_ID),
-      handler -> {
-      if (handler.succeeded()) {
-        JsonObject credentialResponse = (JsonObject) handler.result().body();
-        executeMetricFetching(monitorId, monitorData, credentialResponse);
-      }
-    });
+    JsonObject credentialResponse = CacheStore.getCredentialProfile(monitorData.getLong(VariableConstants.CREDENTIAL_ID));
+    executeMetricFetching(monitorId, monitorData, credentialResponse);
+//    vertx.eventBus().request(EventBusConstants.EVENT_GET_CREDENTIAL, monitorData.getLong(VariableConstants.CREDENTIAL_ID),
+//      handler -> {
+//      if (handler.succeeded()) {
+////        JsonObject credentialResponse = (JsonObject) handler.result().body();
+//
+//        JsonObject credentialResponse = CacheStore.getCredentialProfile(monitorData.getLong(VariableConstants.CREDENTIAL_ID));
+//        executeMetricFetching(monitorId, monitorData, credentialResponse);
+//      }
+//    });
   }
 
   private void executeMetricFetching(Long monitorId, JsonObject monitorData, JsonObject credentialResponse) {
@@ -96,7 +96,7 @@ public class PollingVerticle extends AbstractVerticle {
         JsonObject jsonObject = new JsonObject(String.valueOf(result.result()));
         System.out.println(jsonObject);
         handleMetricsResponse(monitorId, jsonObject);
-      }else {
+      } else {
         System.out.println(result.cause());
       }
     });
@@ -107,67 +107,153 @@ public class PollingVerticle extends AbstractVerticle {
 
     try {
 
-      client.preparedQuery( ADD_MONITORING_DATA_SQL )
-        .execute(Tuple.of(monitorId,response))
+      client.preparedQuery(ADD_MONITORING_DATA_SQL)
+        .execute(Tuple.of(monitorId, response))
         .onSuccess(rows -> {
           System.out.println("monitoring done for monitorid " + monitorId);
         })
-        .onFailure(err-> System.out.println(err));
+        .onFailure(err -> System.out.println(err));
 
-      vertx.eventBus().request(EventBusConstants.GET_PROFILES_FOR_MONITOR,monitorId).onSuccess(objectMessage -> {
-        if(objectMessage.body() != null){
-          var profiles = (List<Long>) objectMessage.body();
+      var profiles = CacheStore.getProfilesByMonitor(monitorId);
 
-          for (Long profile : profiles) {
-            vertx.eventBus().request(EventBusConstants.EVENT_GET_PROFILE,profile).onSuccess(message -> {
-              var profileObject = (JsonObject) message.body();
-              var recoredeValue = response.getString(profileObject.getString(VariableConstants.METRIC_VALUE));
+      for (Long profile : profiles) {
+        var profileObject = CacheStore.getProfile(profile);
+        var recoredeValue = response.getString(profileObject.getString(VariableConstants.METRIC_VALUE));
 
-              checkAlert(recoredeValue,profileObject,monitorId,profile);
+        checkAlert(recoredeValue, profileObject, monitorId, profile);
 
-              System.out.println("recorded value " + recoredeValue);
-            });
-          }
+        System.out.println("recorded value " + recoredeValue);
 
-        }
+      }
 
-      }).onFailure(err-> System.out.println(err));
 
     } catch (Exception e) {
       System.out.println(e);
     }
 
-    vertx.eventBus().request(EventBusConstants. EVENT_MONITOR_REMAINING_INTERVAL_RESET, monitorId).compose(future-> {
-      decrementPollingInterval(monitorId);
-     return Future.succeededFuture();
-    });
+    CacheStore.resetRemainingInterval(monitorId);
+//    vertx.eventBus().request(EventBusConstants. EVENT_MONITOR_REMAINING_INTERVAL_RESET, monitorId).compose(future-> {
+//      decrementPollingInterval(monitorId);
+//     return Future.succeededFuture();
+//    });
 
   }
 
-  private void checkAlert(String recordedValue, JsonObject profileObject,Long monitorId,Long profileId) {
+  private void checkAlert(String recordedValue, JsonObject profileObject, Long monitorId, Long profileId) {
 
     var longValue = BigDecimal.valueOf(Double.parseDouble(recordedValue));
 
-    vertx.eventBus().request(EventBusConstants.CHECK_AND_ADD_ALERT,new JsonObject()
-      .put(VariableConstants.MONITOR_ID,monitorId)
-      .put(VariableConstants.PROFILE_ID,profileId)
-      .put(VariableConstants.PROFILE,profileObject)
-      .put(VariableConstants.VALUE,longValue.longValue()));
+//    vertx.eventBus().request(EventBusConstants.CHECK_AND_ADD_ALERT, new JsonObject()
+//      .put(VariableConstants.MONITOR_ID, monitorId)
+//      .put(VariableConstants.PROFILE_ID, profileId)
+//      .put(VariableConstants.PROFILE, profileObject)
+//      .put(VariableConstants.VALUE, longValue.longValue()));
+
+    var monitorAlertMap = CacheStore.getAlertForMonitorId(monitorId);
+    processAlert(monitorAlertMap, profileId, monitorId, longValue.longValue(), profileObject);
 
 
+  }
+
+  private void processAlert(Map<Long, JsonObject> monitorAlertMap, Long profileId, Long monitorId, Long value, JsonObject profileObject) {
+    var alertJson = createAlertJson(monitorId, profileId, value);
+
+    if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_3)) {
+      addOrUpdateAlert(monitorAlertMap, profileId, alertJson, VariableConstants.CRITICAL);
+      System.out.println("Critical alert generated");
+    } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_2)) {
+      addOrUpdateAlert(monitorAlertMap, profileId, alertJson, VariableConstants.SEVERE);
+    } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_1)) {
+      addOrUpdateAlert(monitorAlertMap, profileId, alertJson, VariableConstants.WARNING);
+    } else {
+      clearAlertIfExists(monitorAlertMap, profileId);
+    }
+    CacheStore.updateAlert(monitorId, monitorAlertMap);
+  }
+
+  private void addOrUpdateAlert(Map<Long, JsonObject> monitorAlertMap, Long profileId, JsonObject alertJson, String alertLevel) {
+    alertJson.put(VariableConstants.ALERT_LEVEL, alertLevel);
+    monitorAlertMap.put(profileId, alertJson);
+    insertAlert(alertJson.getLong(VariableConstants.MONITOR_ID), profileId, alertJson.getLong(VariableConstants.VALUE), alertLevel);
+  }
+
+  private void insertAlert(Long monitorId, Long profileId, Long value, String level) {
+
+    client.preparedQuery(ADD_ALERT_SQL).execute(Tuple.of(monitorId, profileId, level, value)).onSuccess(rows -> {
+      System.out.println("Alert Added ");
+    }).onFailure(err -> System.out.println("Error while adding alert reason " + err.getMessage()));
+  }
+
+  private void clearAlertIfExists(Map<Long, JsonObject> monitorAlertMap, Long profileId) {
+    monitorAlertMap.computeIfPresent(profileId, (key, alert) -> {
+      alert.put(VariableConstants.CLEARED, true);
+      return alert;
+    });
+  }
+
+
+  private JsonObject createAlertJson(Long monitorId, Long profileId, Long value) {
+    return new JsonObject()
+      .put(VariableConstants.MONITOR_ID, monitorId)
+      .put(VariableConstants.PROFILE_ID, profileId)
+      .put(VariableConstants.VALUE, value)
+      .put(VariableConstants.CLEARED, false);
   }
 
   private void decrementPollingInterval(Long monitorId) {
-    vertx.eventBus().request(EventBusConstants.EVENT_MONITOR_REMAINING_INTERVAL_DECREMENT, monitorId);
+    CacheStore.decrementRemainingInterval(monitorId);
+//    vertx.eventBus().request(EventBusConstants.EVENT_MONITOR_REMAINING_INTERVAL_DECREMENT, monitorId);
   }
 
 
-  private String fetchMetricsFromZMQ(String ip, String username ,String password) {
-    socket.send(new JsonObject().put("ip",ip).put(VariableConstants.USERNAME,username).put(VariableConstants.PASSWORD,password).encode());
-//    System.out.println("socket output " + socket.recvStr());
+  private String fetchMetricsFromZMQ(String ip, String username, String password) {
+    socket.send(new JsonObject().put("ip", ip).put(VariableConstants.USERNAME, username).put(VariableConstants.PASSWORD, password).encode());
     return socket.recvStr();
   }
 
+  public static Future<Boolean> checkLogin(String username, String ip, String password) {
+    Promise<Boolean> resultPromise = Promise.promise();
+
+    var vertx = thisvertx;
+    vertx.executeBlocking(promise -> {
+
+      try {
+        JSch jsch = new JSch();
+        Session session = jsch.getSession(username, ip, 22);
+        session.setPassword(password);
+        session.setConfig("StrictHostKeyChecking", "no");
+        session.connect(3000);
+        session.disconnect();
+        promise.complete(true);
+      } catch (Exception e) {
+        System.out.println(e);
+        promise.fail(e);
+      }
+    }, resultPromise);
+
+    return resultPromise.future();
+
+  }
+
+
+  public static Future<Boolean> pingIPAddress(String ipAdress) {
+    var vertx = thisvertx;
+
+
+    Promise<Boolean> resultPromise = Promise.promise();
+    vertx.executeBlocking(promise -> {
+      try {
+        InetAddress inetAddress = InetAddress.getByName(ipAdress);
+        boolean reachable = inetAddress.isReachable(3000);
+        resultPromise.complete(reachable);
+      } catch (Exception e) {
+        System.out.println(e);
+        resultPromise.fail(e);
+      }
+    }, resultPromise);
+
+    return resultPromise.future();
+  }
 
 
 }

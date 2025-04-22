@@ -2,15 +2,19 @@ package com.motadata.api;
 
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
+import com.motadata.cache.CacheStore;
 import com.motadata.database.DatabaseConfig;
+import com.motadata.polling.PollingVerticle;
 import com.motadata.utility.*;
 import io.vertx.core.AbstractVerticle;
 
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
 
@@ -18,43 +22,26 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-
-public class Device extends AbstractVerticle {
-
-  private static final String GET_DEVICE_BY_ID_SQL = "select * from NMS_DEVICE WHERE deviceid = $1";
-  private static final String GET_MONITOR_BY_IP_SQL = "select * from NMS_MONITOR where ipaddress = $1";
-  private static final String GET_ALL_DEVICES = "SELECT d.deviceid , d.ipaddress ,dt.name , d.discovered , d.remarks , d.devicetypeid FROM NMS_DEVICE d join ncm_devicetype dt on d.devicetypeid = dt.devicetypeid ";
+import static com.motadata.constants.QueryConstants.*;
 
 
-  private static final String GET_ALL_DEVICES_PAGINATION =  "SELECT d.deviceid , d.ipaddress ,dt.name , d.discovered , d.remarks FROM NMS_DEVICE d join ncm_devicetype dt on d.devicetypeid = dt.devicetypeid WHERE (1 = $1 OR d.discovered = $2 ) LIMIT $3 OFFSET $4";
+public class Device  {
 
-  private final Router router;
+
   PgPool client;
 
 
 
-  private static final String ADD_MONITOR_SQL = "INSERT INTO NMS_MONITOR (credentialid,ipaddress,pollinginterval, createdon) VALUES ($1,$2,$3,CURRENT_TIMESTAMP) returning monitorid";
-
-
-
-
-
-  public Device(Router router) {
-    this.router = router;
-  }
-
-  @Override
-  public void start() throws Exception {
-
-    this.client = DatabaseConfig.getDatabaseClient(vertx);
-
-    router.post("/device/provision").handler(this::provisionDevice);
-    router.post("/create/device").handler(this::createDiscoverDevice);
-    router.get("/devices").handler(this::getDevicesWithoutPagination);
-    router.post("/devices").handler(this::getDevicesWithPagination);
+  public void init(Router router,PgPool client) {
+    this.client = client;
+    router.post("/provision").handler(this::provisionDevice);
+    router.post("/create").handler(this::createDiscoverDevice);
+    router.get("/get").handler(this::getDevicesWithoutPagination);
+    router.post("/get").handler(this::getDevicesWithPagination);
 
 
   }
+
 
   private void getDevicesWithPagination(RoutingContext routingContext) {
 
@@ -160,16 +147,18 @@ public class Device extends AbstractVerticle {
 
         }).compose(v-> client.preparedQuery(ADD_MONITOR_SQL).execute(Tuple.of(credentialId,ipAddress,pollingInterval))).onSuccess(rows -> {
 
-            var monitorId = rows.iterator().next().getValue(DatabaseConstants.MONITOR_ID);
+            var monitorId = rows.iterator().next().getLong(DatabaseConstants.MONITOR_ID);
 
             routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,monitorId));
 
-            vertx.eventBus().request(EventBusConstants.EVENT_MONITOR_MAP_ADD,new JsonObject()
+
+            CacheStore.addMonitor(monitorId,new JsonObject()
               .put(VariableConstants.MONITOR_ID,monitorId)
               .put(VariableConstants.POLLING_INTERVAL,pollingInterval)
               .put(VariableConstants.REMAINING_INTERVAL,pollingInterval)
               .put(VariableConstants.IP_ADDRESS,ipAddress)
               .put(VariableConstants.CREDENTIAL_ID,credentialId));
+
 
           })
           .onFailure(err->{
@@ -295,78 +284,49 @@ public class Device extends AbstractVerticle {
     }
 
 
-    vertx.executeBlocking(promise -> {
-       pingIPAddress(ipAddress,promise);
 
-    }).onSuccess(reachable -> {
+    PollingVerticle.pingIPAddress(ipAddress).onComplete(pingFuture-> {
+      if (pingFuture.succeeded()) {
+        if(pingFuture.result()){
 
-      if((boolean)reachable){
-        vertx.eventBus().<JsonObject>request(EventBusConstants.EVENT_GET_CREDENTIAL_PROFILE,credentialId, reply->{
-          if (reply.succeeded()) {
-            JsonObject credentialProfile =  reply.result().body();
+          JsonObject credentialProfile = CacheStore.getCredentialProfile(credentialId);
+          if (credentialProfile != null) {
+//            JsonObject credentialProfile =  reply.result().body();
 
             String username = credentialProfile.getString(VariableConstants.USERNAME);
             String password = credentialProfile.getString(VariableConstants.PASSWORD);
 
-            vertx.executeBlocking(promise -> {
 
-               checkLogin(ipAddress,username,password,promise);
+            PollingVerticle.checkLogin(username,ipAddress,password).onComplete(future-> {
 
-            }).onSuccess(accessible -> {
+              if (future.succeeded() && future.result()) {
                 insertDiscoverDevice(credentialId,ipAddress,"Success",true,routingContext,deviceTypeId);
+              }else {
+                insertDiscoverDevice(credentialId,ipAddress,future.cause().getMessage(),false,routingContext,deviceTypeId);
+              }
+            });
 
 
-              })
-              .onFailure(notAccessible -> {
-                insertDiscoverDevice(credentialId,ipAddress,notAccessible.getMessage(),false,routingContext,deviceTypeId);
-              });
 
           }else {
-
-            routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error getting credential Profile reason -> " + reply.cause()));
+            routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error getting credential Profile"));
           }
-        });
+
+        }else {
+          insertDiscoverDevice(credentialId,ipAddress,"IP not reachable",false,routingContext,deviceTypeId);
+        }
       }else {
-        insertDiscoverDevice(credentialId,ipAddress,"IP not reachable",false,routingContext,deviceTypeId);
+        insertDiscoverDevice(credentialId,ipAddress, pingFuture.cause().getMessage(), false,routingContext,deviceTypeId);
       }
-    }).onFailure(notReachable -> {
-      insertDiscoverDevice(credentialId,ipAddress, notReachable.getMessage(), false,routingContext,deviceTypeId);
+
     });
 
 
-  }
-
-
-
-  private void pingIPAddress(String ipAdress,Promise<Object> promise){
-    try {
-      InetAddress inetAddress = InetAddress.getByName(ipAdress);
-      boolean reachable =  inetAddress.isReachable(3000);
-      promise.complete(reachable);
-    } catch (Exception e) {
-      promise.fail(e);
-    }
 
   }
 
-  private void checkLogin(String ip,String username, String password,Promise<Object> promise){
 
-    JSch jsch = new JSch();
 
-    try{
-      Session session = jsch.getSession(username,ip,22);
-      session.setPassword(password);
-      session.setConfig("StrictHostKeyChecking","no");
-      session.connect(3000);
-
-      session.disconnect();
-      promise.complete(true);
-    } catch (Exception e) {
-      System.out.println(e);
-      promise.fail(e);
-    }
-
-  }
 
 
   private void insertDiscoverDevice(Long credentialId, String ipAddress, String remarks, boolean discovered, RoutingContext routingContext,Long deviceTypeId) {

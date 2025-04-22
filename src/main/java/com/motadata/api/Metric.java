@@ -1,5 +1,6 @@
 package com.motadata.api;
 
+import com.motadata.cache.CacheStore;
 import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.*;
 import io.vertx.core.AbstractVerticle;
@@ -15,57 +16,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Metric extends AbstractVerticle {
+import static com.motadata.constants.QueryConstants.*;
 
-  private static final String ADD_METRIC_SQL = "INSERT INTO NMS_METRIC (name , devicetypeid ,alertable , metricvalue) values ($1,$2,$3,$4) returning metricid";
-  private static final String GET_METRIC_SQL = "SELECT * FROM NMS_METRIC";
+public class Metric  {
 
-  private final Router router;
+
 
   PgPool client;
 
-  private static final Map<Long,JsonObject> METRIC_CACHE_MAP = new ConcurrentHashMap<>();
+//  private static final Map<Long,JsonObject> METRIC_CACHE_MAP = new ConcurrentHashMap<>();
 
 
-  public Metric(Router router) {
-    this.router = router;
-  }
 
-  @Override
   public void start() throws Exception {
 
-    client = DatabaseConfig.getDatabaseClient(vertx);
-//    router.get("/metric/:id").handler(this :: getMetricByDeviceType);
-    router.get("/devicetype/metric/get/:id").handler(this::getMetricsForDeviceType);
-    router.post("/metric/add").handler(this::addMetric);
 
 //    router.post("").handler(this::getMetricWithPagination);
 
-    initializeMetricCacheMap();
 
-    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_METRIC,handler -> {
-      var metricId = (Long)handler.body();
-
-      var metricObject = METRIC_CACHE_MAP.get(metricId);
-
-      handler.reply(metricObject);
-    });
+//    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_METRIC,handler -> {
+//      var metricId = (Long)handler.body();
+//
+//      var metricObject = METRIC_CACHE_MAP.get(metricId);
+//
+//      handler.reply(metricObject);
+//    });
   }
 
-  private void initializeMetricCacheMap() {
 
-    client.preparedQuery(GET_METRIC_SQL).execute().onSuccess(rows -> {
-      rows.forEach(row -> METRIC_CACHE_MAP
-        .put(row.getLong(DatabaseConstants.METRIC_ID),
-          new JsonObject()
-            .put(VariableConstants.NAME,row.getString(DatabaseConstants.NAME))
-            .put(VariableConstants.DEVICE_TYPE_ID, row.getLong(DatabaseConstants.DEVICE_TYPE_ID))
-            .put(VariableConstants.ALERTABLE,row.getBoolean(DatabaseConstants.ALERTABLE) )
-            .put(VariableConstants.METRIC_VALUE,row.getString(DatabaseConstants.METRIC_VALUE))
-        ));
 
-    }).onFailure(System.out::println);
+  public void init(Router router,PgPool client) {
+    this.client = client;
+    router.post("/devicetype/get/:id").handler(this::getMetricsForDeviceType);
+    router.post("/add").handler(this::addMetric);
+
+
   }
+
 
   private void addMetric(RoutingContext routingContext) {
 
@@ -101,7 +88,7 @@ public class Metric extends AbstractVerticle {
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,metricId));
 
       // add to cache
-      addMetricToCacheMap(metricId, new JsonObject()
+      CacheStore.addMetric(metricId, new JsonObject()
         .put(VariableConstants.NAME,name)
         .put(VariableConstants.METRIC_VALUE,metricValue)
         .put(VariableConstants.ALERTABLE,alertable)
@@ -111,9 +98,7 @@ public class Metric extends AbstractVerticle {
     }).onFailure(err -> JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, err.getMessage()));
   }
 
-  private void addMetricToCacheMap(Long metricId, JsonObject jsonObject) {
-    METRIC_CACHE_MAP.put(metricId,jsonObject);
-  }
+
 
 
   private void getMetricByDeviceType(RoutingContext routingContext) {

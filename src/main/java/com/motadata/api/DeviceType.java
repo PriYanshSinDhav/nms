@@ -17,25 +17,26 @@ import io.vertx.sqlclient.Tuple;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DeviceType extends AbstractVerticle {
+public class DeviceType  {
 
-  private final Router router;
   PgPool client;
 
 
-  public DeviceType(Router router) {
-    this.router = router;
+  public DeviceType() {
   }
 
-  @Override
-  public void start() {
 
-    client = DatabaseConfig.getDatabaseClient(vertx);
-    router.post("/devicetype/create").handler(this::createDeviceType);
-    router.get("/devicetype/get").handler(this::getDeviceType);
-    router.post("/deviceType/get").handler(this::getDeviceTypeWithPagination);
-    router.get("/devicetype/metric/get/:id").handler(this::getMetricsForDeviceType);
+
+  public void init(Router router,PgPool client) {
+    this.client = client;
+    router.post("/create").handler(this::createDeviceType);
+    router.get("/get").handler(this::getDeviceType);
+    router.post("/get").handler(this::getDeviceTypeWithPagination);
+    router.get("/metric/get/:id").handler(this::getMetricsForDeviceType);
+
+
   }
+
   private void getMetricsForDeviceType(RoutingContext routingContext) {
 
     var deviceTypeId = routingContext.pathParam("id");
