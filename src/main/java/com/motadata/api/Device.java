@@ -16,6 +16,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.pgclient.PgPool;
+import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
 
 import java.net.InetAddress;
@@ -36,6 +37,7 @@ public class Device  {
     this.client = client;
     router.post("/provision").handler(this::provisionDevice);
     router.post("/create").handler(this::createDiscoverDevice);
+    router.post("/retry/:id").handler(this::retryDiscoveringDevice);
     router.get("/get").handler(this::getDevicesWithoutPagination);
     router.post("/get").handler(this::getDevicesWithPagination);
 
@@ -217,45 +219,6 @@ public class Device  {
 
   }
 
-  private void getAlertDetailsByMonitorId(RoutingContext routingContext){
-
-    JsonObject requestBody = routingContext.body().asJsonObject();
-
-
-    Long pageNumber = requestBody.getLong(VariableConstants.PAGE_NUMBER);
-
-    Long pageSize = requestBody.getLong(VariableConstants.PAGE_SIZE);
-
-    Long monitorId = requestBody.getLong(VariableConstants.MONITOR_ID);
-
-    String level = requestBody.getString("level");
-
-    String sql = "SELECT * , n.profileid as profileid , p.name as profilename FROM NMS_ALERT n JOIN NMS_PROFILE p on n.profileid = p.profileid  WHERE  n.monitorid = $1 and n.level = $2 ORDER BY timestamp desc  LIMIT $3  OFFSET $4";
-
-    client.preparedQuery(sql).execute(Tuple.of(monitorId,level,pageSize,pageNumber*pageSize))
-      .onSuccess(rows -> {
-
-        var alertDetails = new ArrayList<JsonObject>();
-
-        rows.forEach(row-> {
-          alertDetails.add(new JsonObject()
-            .put(VariableConstants.ALERT_ID,DatabaseConstants.ALERT_ID)
-            .put(VariableConstants.PROFILE_ID,DatabaseConstants.PROFILE_ID)
-            .put(VariableConstants.PROFILE_NAME,DatabaseConstants.PROFILE_NAME)
-            .put(VariableConstants.ALERT_LEVEL,DatabaseConstants.ALERT_LEVEL)
-            .put(VariableConstants.VALUE,DatabaseConstants.VALUE)
-            .put(VariableConstants.GENERATED_AT,DatabaseConstants.TIMESTAMP)
-
-          );
-        });
-
-        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,alertDetails));
-
-
-      })
-      .onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error fetching alert details reason :- " + err.getMessage())));
-
-  }
 
 
   private void createDiscoverDevice(RoutingContext routingContext) {
@@ -284,6 +247,14 @@ public class Device  {
     }
 
 
+    checkDeviceAccessible(ipAddress,credentialId,deviceTypeId,routingContext);
+
+
+
+
+  }
+
+  private void checkDeviceAccessible(String ipAddress, Long credentialId ,Long deviceTypeId, RoutingContext routingContext) {
 
     PollingVerticle.pingIPAddress(ipAddress).onComplete(pingFuture-> {
       if (pingFuture.succeeded()) {
@@ -291,7 +262,6 @@ public class Device  {
 
           JsonObject credentialProfile = CacheStore.getCredentialProfile(credentialId);
           if (credentialProfile != null) {
-//            JsonObject credentialProfile =  reply.result().body();
 
             String username = credentialProfile.getString(VariableConstants.USERNAME);
             String password = credentialProfile.getString(VariableConstants.PASSWORD);
@@ -322,11 +292,49 @@ public class Device  {
     });
 
 
-
   }
 
 
+  private void retryDiscoveringDevice(RoutingContext routingContext){
 
+    var deviceId = Long.valueOf(routingContext.pathParam("id"));
+
+    String sql = "select * from NMS_DEVICE WHERE deviceid = $1";
+    client.preparedQuery(sql).execute(Tuple.of(deviceId)).onComplete(result -> {
+      if (result.succeeded()) {
+
+        var row = result.result().iterator().next();
+
+        Long credentialId = row.getLong(DatabaseConstants.CREDENTIAL_ID);
+        Long deviceTypeId = row.getLong(DatabaseConstants.DEVICE_TYPE_ID);
+        String ipAddress = row.getString(DatabaseConstants.IP_ADDRESS);
+
+
+        if(credentialId == null){
+          routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Credential is required to insert device"));
+          return;
+        } else if (deviceTypeId == null) {
+          routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Device type  is required to insert device"));
+          return;
+        } else if (ipAddress == null) {
+          routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"IP Address  is required to insert device"));
+          return;
+        }
+
+
+        checkDeviceAccessible(ipAddress,credentialId,deviceTypeId,routingContext);
+
+
+
+
+      }else {
+        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,result.cause().getMessage()));
+        return;
+      }
+    });
+
+
+  }
 
 
   private void insertDiscoverDevice(Long credentialId, String ipAddress, String remarks, boolean discovered, RoutingContext routingContext,Long deviceTypeId) {
