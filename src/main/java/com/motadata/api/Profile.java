@@ -19,7 +19,6 @@ public class Profile {
 
   PgPool client;
 
-  private static final Map<Long, JsonObject> PROFILE_CACHE_MAP = new ConcurrentHashMap<>();
 
 
   public void init(Router router, PgPool client) {
@@ -124,7 +123,7 @@ public class Profile {
 
         var profileId = res.iterator().next().getLong(DatabaseConstants.PROFILE_ID);
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS, ResponseConstants.SUCCESS_MSG, profileId));
-        addProfilesToCache(profileId, new JsonObject().put(VariableConstants.NAME, name).put(VariableConstants.ALERT_LEVEL_1, alertLevel1));
+        CacheStore.addProfile(profileId, new JsonObject().put(VariableConstants.NAME, name).put(VariableConstants.ALERT_LEVEL_1, alertLevel1));
       }).onFailure(err -> {
         System.out.println(err);
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, "Error occurred while trying to add profile reason :- " + err.getMessage()));
@@ -133,7 +132,5 @@ public class Profile {
 
   }
 
-  private void addProfilesToCache(Long profileId, JsonObject jsonObject) {
-    PROFILE_CACHE_MAP.put(profileId, jsonObject);
-  }
+
 }

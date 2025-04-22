@@ -24,32 +24,12 @@ public class Metric  {
 
   PgPool client;
 
-//  private static final Map<Long,JsonObject> METRIC_CACHE_MAP = new ConcurrentHashMap<>();
-
-
-
-  public void start() throws Exception {
-
-
-//    router.post("").handler(this::getMetricWithPagination);
-
-
-//    vertx.eventBus().localConsumer(EventBusConstants.EVENT_GET_METRIC,handler -> {
-//      var metricId = (Long)handler.body();
-//
-//      var metricObject = METRIC_CACHE_MAP.get(metricId);
-//
-//      handler.reply(metricObject);
-//    });
-  }
-
 
 
   public void init(Router router,PgPool client) {
     this.client = client;
     router.post("/devicetype/get/:id").handler(this::getMetricsForDeviceType);
     router.post("/add").handler(this::addMetric);
-
 
   }
 
@@ -98,29 +78,6 @@ public class Metric  {
     }).onFailure(err -> JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, err.getMessage()));
   }
 
-
-
-
-  private void getMetricByDeviceType(RoutingContext routingContext) {
-
-    Long typeId = Long.valueOf(routingContext.pathParam(VariableConstants.ID));
-    String sql = "SELECT * FROM  NMS_METRIC M WHERE M.typeid = $1";
-
-    client.preparedQuery(sql).execute(Tuple.of(typeId))
-      .onSuccess(res -> {
-        List<JsonObject> metrics = new ArrayList<>();
-
-        for (Row r : res) {
-          metrics.add(new JsonObject().put(VariableConstants.ID,r.getValue(DatabaseConstants.ID))
-            .put(VariableConstants.NAME,r.getValue(DatabaseConstants.NAME))
-            .put(VariableConstants.ALERTABLE,r.getValue(DatabaseConstants.ALERTABLE))
-            .put(VariableConstants.METRIC_VALUE,r.getValue(DatabaseConstants.METRIC_VALUE)));
-        }
-        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,metrics));
-
-      })
-      .onFailure(err -> JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,err.getMessage()));
-  }
 
   private void getMetricsForDeviceType(RoutingContext routingContext) {
 
