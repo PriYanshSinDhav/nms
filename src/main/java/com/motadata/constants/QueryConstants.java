@@ -42,4 +42,7 @@ public class QueryConstants {
   public static final String GET_ALL_ALERTS_BY_PROFILE = "SELECT n.alertid , n.monitorid , n.profileid , n.level , n.timestamp ,n.value , p.name as profilename, m.ipaddress   FROM NMS_ALERT n join NMS_MONITOR m ON n.monitorid = m.monitorid join NMS_PROFILE p on n.profileid = p.profileid  WHERE  (1 = $5 OR n.profileid = $1)  and (1 = $6 or n.level = $2)  ORDER BY timestamp desc LIMIT $3  OFFSET $4 ";
 
 
+
+  public static final String INSERT_DEVICE  = "INSERT INTO NMS_DEVICE (credentialid, ipaddress, remarks, discovered,devicetypeid) VALUES ($1, $2, $3, $4,$5)";
+
 }

@@ -3,29 +3,18 @@ package com.motadata.api;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.motadata.cache.CacheStore;
-import com.motadata.database.DatabaseConfig;
 import com.motadata.nms.MainVerticle;
-import com.motadata.polling.PollingVerticle;
 import com.motadata.utility.*;
-import io.vertx.core.AbstractVerticle;
-
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.pgclient.PgPool;
-import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
-
 import java.net.InetAddress;
 import java.util.ArrayList;
-import java.util.List;
-
 import static com.motadata.constants.QueryConstants.*;
-
 
 public class Device  {
 
@@ -181,46 +170,6 @@ public class Device  {
   }
 
 
-  private void getAlertDetailsByMetricId(RoutingContext routingContext){
-
-    JsonObject requestBody = routingContext.body().asJsonObject();
-
-
-    Long pageNumber = requestBody.getLong(VariableConstants.PAGE_NUMBER);
-
-    Long pageSize = requestBody.getLong(VariableConstants.PAGE_SIZE);
-
-    Long profileId = requestBody.getLong(VariableConstants.PROFILE_ID);
-
-    String level = requestBody.getString("level");
-
-    String sql = "SELECT * ,n.monitorid as monitorid  FROM NMS_ALERT n join NMS_MONITOR m ON n.monitorid = m.monitorid WHERE  n.profileid = $1 and n.level = $2 ORDER BY timestamp desc   LIMIT $3  OFFSET $4 ";
-
-    client.preparedQuery(sql).execute(Tuple.of(profileId,level,pageSize,pageNumber*pageSize))
-      .onSuccess(rows -> {
-        var alertDetails = new ArrayList<JsonObject>();
-
-        rows.forEach(row-> {
-          alertDetails.add(new JsonObject()
-            .put(VariableConstants.ALERT_ID,DatabaseConstants.ALERT_ID)
-            .put(VariableConstants.MONITOR_ID,DatabaseConstants.MONITOR_ID)
-            .put(VariableConstants.IP_ADDRESS,DatabaseConstants.IP_ADDRESS)
-            .put(VariableConstants.ALERT_LEVEL,DatabaseConstants.ALERT_LEVEL)
-            .put(VariableConstants.VALUE,DatabaseConstants.VALUE)
-            .put(VariableConstants.GENERATED_AT,DatabaseConstants.TIMESTAMP)
-
-          );
-        });
-
-        routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,alertDetails));
-
-
-      })
-      .onFailure(err -> routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error fetching alert details reason :- " + err.getMessage())));
-
-  }
-
-
 
   private void createDiscoverDevice(RoutingContext routingContext) {
 
@@ -295,13 +244,11 @@ public class Device  {
 
   }
 
-
   private void retryDiscoveringDevice(RoutingContext routingContext){
 
-    var deviceId = Long.valueOf(routingContext.pathParam("id"));
+    var deviceId = Long.valueOf(routingContext.pathParam(VariableConstants.ID));
 
-    String sql = "select * from NMS_DEVICE WHERE deviceid = $1";
-    client.preparedQuery(sql).execute(Tuple.of(deviceId)).onComplete(result -> {
+    client.preparedQuery(GET_DEVICE_BY_ID_SQL).execute(Tuple.of(deviceId)).onComplete(result -> {
       if (result.succeeded()) {
 
         var row = result.result().iterator().next();
@@ -322,11 +269,7 @@ public class Device  {
           return;
         }
 
-
         checkDeviceAccessible(ipAddress,credentialId,deviceTypeId,routingContext);
-
-
-
 
       }else {
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,result.cause().getMessage()));
@@ -339,9 +282,8 @@ public class Device  {
 
 
   private void insertDiscoverDevice(Long credentialId, String ipAddress, String remarks, boolean discovered, RoutingContext routingContext,Long deviceTypeId) {
-    String sql = "INSERT INTO NMS_DEVICE (credentialid, ipaddress, remarks, discovered,devicetypeid) VALUES ($1, $2, $3, $4,$5)";
 
-    client.preparedQuery(sql)
+    client.preparedQuery(INSERT_DEVICE)
       .execute(Tuple.of(credentialId, ipAddress, remarks, discovered,deviceTypeId))
       .onSuccess(res -> {
         routingContext.json(new JsonObject().put("message", "Device discovery logged").put("remarks", remarks).put("discovered", discovered));
