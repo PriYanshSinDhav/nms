@@ -118,11 +118,11 @@ public class PollingVerticle extends AbstractVerticle {
 
       for (Long profile : profiles) {
         var profileObject = CacheStore.getProfile(profile);
-        var recoredeValue = response.getString(profileObject.getString(VariableConstants.METRIC_VALUE));
+        var recordedValue = response.getString(profileObject.getString(VariableConstants.METRIC_VALUE));
 
-        checkAlert(recoredeValue, profileObject, monitorId, profile);
+        checkAlert(recordedValue, profileObject, monitorId, profile);
 
-        System.out.println("recorded value " + recoredeValue);
+        System.out.println("recorded value " + recordedValue);
 
       }
 
@@ -132,10 +132,6 @@ public class PollingVerticle extends AbstractVerticle {
     }
 
     CacheStore.resetRemainingInterval(monitorId);
-//    vertx.eventBus().request(EventBusConstants. EVENT_MONITOR_REMAINING_INTERVAL_RESET, monitorId).compose(future-> {
-//      decrementPollingInterval(monitorId);
-//     return Future.succeededFuture();
-//    });
 
   }
 
