@@ -1,21 +1,14 @@
 package com.motadata.api;
 
 import com.motadata.cache.CacheStore;
-import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.*;
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.pgclient.PgPool;
-import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
 
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import static com.motadata.constants.QueryConstants.*;
 
 public class Metric  {
@@ -67,13 +60,13 @@ public class Metric  {
 
       routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS,ResponseConstants.SUCCESS_MSG,metricId));
 
-      // add to cache
+//       add to cache
       CacheStore.addMetric(metricId, new JsonObject()
         .put(VariableConstants.NAME,name)
         .put(VariableConstants.METRIC_VALUE,metricValue)
         .put(VariableConstants.ALERTABLE,alertable)
         .put(VariableConstants.DEVICE_TYPE_ID,deviceTypeId)
-        );
+      );
 
     }).onFailure(err -> JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, err.getMessage()));
   }

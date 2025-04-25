@@ -21,4 +21,5 @@ public class EventBusConstants {
 
 
   public static final String EVENT_GET_METRIC = "metric.get";
+  public static final String ADD_METRIC_DETAILS = "add.metric.details";
 }

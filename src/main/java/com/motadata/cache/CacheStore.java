@@ -31,12 +31,11 @@ public class CacheStore extends AbstractVerticle {
 
   private static final Map<Long, List<Long>> MONITOR_PROFILE_REL_MAP = new ConcurrentHashMap<>();
 
-
   private static final Map<Long, Map<Long, JsonObject>> ALERT_MAP = new ConcurrentHashMap<>();
 
 
   @Override
-  public void start() throws Exception {
+  public void start()  {
     initializesMap();
   }
 

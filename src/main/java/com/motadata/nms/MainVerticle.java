@@ -22,6 +22,8 @@ public class MainVerticle {
     vertx.deployVerticle(new APIServer(router))
       .compose(id -> vertx.deployVerticle(new CacheStore()))
       .compose(id -> vertx.deployVerticle(new PollingVerticle()))
+      .compose(id-> vertx.deployVerticle(new AlertVerticle()))
+      .compose(id-> vertx.deployVerticle(new MonitoringVerticle()))
       .compose(id -> vertx.createHttpServer()
         .requestHandler(router)
         .listen(8080))

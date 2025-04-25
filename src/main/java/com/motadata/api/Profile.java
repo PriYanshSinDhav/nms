@@ -2,6 +2,8 @@ package com.motadata.api;
 
 import com.motadata.cache.CacheStore;
 import com.motadata.utility.*;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -9,8 +11,6 @@ import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
 
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.motadata.constants.QueryConstants.*;
 
@@ -22,9 +22,13 @@ public class Profile {
 
 
   public void init(Router router, PgPool client) {
+
     this.client = client;
+
     router.post("/create").handler(this::createProfile);
+
     router.get("/get").handler(this::getAllProfiles);
+
     router.post("/get").handler(this::getProfilesWithPagination);
 
 
@@ -35,10 +39,11 @@ public class Profile {
     var requestBody = routingContext.body().asJsonObject();
 
     var pageNumber = requestBody.getLong(VariableConstants.PAGE_NUMBER);
+
     var pageSize = requestBody.getLong(VariableConstants.PAGE_SIZE);
 
-
     client.preparedQuery(GET_PROFILE_PAGINATION_SQL).execute(Tuple.of(pageSize, pageNumber * pageSize)).onSuccess(rows -> {
+
       var profiles = new ArrayList<JsonObject>();
 
       rows.forEach(row -> profiles.add(new JsonObject()
@@ -61,6 +66,7 @@ public class Profile {
   private void getAllProfiles(RoutingContext routingContext) {
 
     client.preparedQuery(GET_PROFILES_SQL).execute().onSuccess(rows -> {
+
       var profiles = new ArrayList<JsonObject>();
 
       rows.forEach(row -> profiles.add(new JsonObject()
@@ -89,9 +95,13 @@ public class Profile {
 
 
     var name = requestBody.getString(VariableConstants.NAME);
+
     var alertLevel1 = requestBody.getLong(VariableConstants.ALERT_LEVEL_1);
+
     var alertLevel2 = requestBody.getLong(VariableConstants.ALERT_LEVEL_2);
+
     var alertLevel3 = requestBody.getLong(VariableConstants.ALERT_LEVEL_3);
+
     var metricId = requestBody.getLong(VariableConstants.METRIC_ID);
 
     if (name == null) {
@@ -119,13 +129,19 @@ public class Profile {
     }
     var metricValue = metricObject.getString(VariableConstants.METRIC_VALUE);
     client.preparedQuery(CREATE_PROFILE_SQL).execute(Tuple.of(metricId, name, alertLevel1, alertLevel2, alertLevel3, metricValue))
+
       .onSuccess(res -> {
 
         var profileId = res.iterator().next().getLong(DatabaseConstants.PROFILE_ID);
+
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.SUCCESS, ResponseConstants.SUCCESS_MSG, profileId));
+
         CacheStore.addProfile(profileId, new JsonObject().put(VariableConstants.NAME, name).put(VariableConstants.ALERT_LEVEL_1, alertLevel1));
+
       }).onFailure(err -> {
+
         System.out.println(err);
+
         routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, "Error occurred while trying to add profile reason :- " + err.getMessage()));
       });
 
@@ -134,3 +150,7 @@ public class Profile {
 
 
 }
+
+
+
+
