@@ -27,7 +27,8 @@ public class AlertVerticle extends AbstractVerticle {
 
 
       var jsonObject = (JsonObject) message.body();
-      var monitorId = jsonObject.getLong(VariableConstants.MONITOR_ID);
+      var monitorId = Long.valueOf(jsonObject.getString(VariableConstants.MONITOR_ID));
+
 
 
       var profiles = CacheStore.getProfilesByMonitor(monitorId);

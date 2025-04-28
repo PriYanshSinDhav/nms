@@ -22,7 +22,7 @@ public class MonitoringVerticle extends AbstractVerticle {
     vertx.eventBus().localConsumer(EventBusConstants.ADD_METRIC_DETAILS,message -> {
 
       var json = (JsonObject)message.body();
-      var monitorId = json.getLong(VariableConstants.MONITOR_ID);
+      var monitorId = Long.valueOf(json.getString(VariableConstants.MONITOR_ID));
       json.remove(VariableConstants.MONITOR_ID);
 
       client.preparedQuery(ADD_MONITORING_DATA_SQL)
