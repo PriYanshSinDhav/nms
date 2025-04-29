@@ -5,12 +5,17 @@ import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.EventBusConstants;
 import com.motadata.utility.VariableConstants;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.pgclient.PgPool;
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class PollingVerticle extends AbstractVerticle {
@@ -23,7 +28,7 @@ public class PollingVerticle extends AbstractVerticle {
   private ZMQ.Socket  recieverSocket;
 
   @Override
-  public void start() throws Exception {
+  public void start()  {
 
 
     client = DatabaseConfig.getDatabaseClient(vertx);
@@ -34,11 +39,14 @@ public class PollingVerticle extends AbstractVerticle {
     recieverSocket = zContext.createSocket(SocketType.PULL);
     recieverSocket.connect("tcp://127.0.0.1:5556");
 
-    vertx.setPeriodic(10L * 1000L, timeHandler -> {
-      fetchMonitorMap();
-    });
+;
 
     getMetrics();
+
+    vertx.eventBus().localConsumer(EventBusConstants.POLL_MONITOR,e-> {
+      var jsonObject = (JsonObject) e.body();
+      handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID),jsonObject.getJsonObject("value") );
+    });
 
   }
 
@@ -114,21 +122,7 @@ public class PollingVerticle extends AbstractVerticle {
     String ipAddress = monitorData.getString(VariableConstants.IP_ADDRESS);
 
     fetchMetricsFromZMQ(ipAddress, username, password,monitorId);
-//    vertx.executeBlocking(promise -> {
-//      String metrics = fetchMetricsFromZMQ(ipAddress, username, password,monitorId);
-//      promise.complete(metrics);
-//    }, result -> {
-//      if (result.succeeded()) {
-//        JsonObject jsonObject = new JsonObject(String.valueOf(result.result()));
-//        System.out.println(jsonObject);
-//        var json = new JsonObject().put(VariableConstants.MONITOR_ID,monitorId).mergeIn(jsonObject);
-//        vertx.eventBus().send(EventBusConstants.ADD_METRIC_DETAILS,json);
-//        vertx.eventBus().send(EventBusConstants.CHECK_AND_ADD_ALERT,json);
-////        handleMetricsResponse(monitorId, jsonObject);
-//      } else {
-//        System.out.println(result.cause());
-//      }
-//    });
+
   }
 
 

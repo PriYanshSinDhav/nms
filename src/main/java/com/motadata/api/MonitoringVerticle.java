@@ -16,7 +16,7 @@ public class MonitoringVerticle extends AbstractVerticle {
   PgPool client ;
 
   @Override
-  public void start() throws Exception {
+  public void start() {
 
     client = DatabaseConfig.getDatabaseClient(vertx);
     vertx.eventBus().localConsumer(EventBusConstants.ADD_METRIC_DETAILS,message -> {

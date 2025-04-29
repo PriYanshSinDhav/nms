@@ -83,7 +83,6 @@ public class CacheStore extends AbstractVerticle {
   }
 
   private void initializeProfileMap() {
-    Promise<Void> voidPromise = Promise.promise();
     client.preparedQuery(GET_PROFILES_SQL).execute().onSuccess(rows -> {
 
       rows.forEach(row -> PROFILE_MAP.put(row.getLong(DatabaseConstants.PROFILE_ID), new JsonObject()
@@ -94,7 +93,6 @@ public class CacheStore extends AbstractVerticle {
         .put(VariableConstants.ALERT_LEVEL_2, row.getLong(DatabaseConstants.ALERT_LEVEL_2))
         .put(VariableConstants.ALERT_LEVEL_3, row.getLong(DatabaseConstants.ALERT_LEVEL_3))
       ));
-      voidPromise.complete();
     }).onFailure(err -> {
       System.out.println(err);
 
@@ -123,7 +121,7 @@ public class CacheStore extends AbstractVerticle {
 
   public static void addCredentialProfile(Long id, JsonObject credentialProfile) {
 
-    CREDENTIAL_MAP.putIfAbsent(id, credentialProfile);
+    CREDENTIAL_MAP.computeIfAbsent(id, value -> credentialProfile);
 
   }
 
