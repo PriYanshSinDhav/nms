@@ -98,6 +98,7 @@ public class PollingVerticle extends AbstractVerticle {
   private void handleMonitorEntry(Long monitorId, JsonObject monitorData) {
     if (CacheStore.shouldPoll(monitorId)) {
       processPolling(monitorId, monitorData);
+      CacheStore.resetRemainingInterval(monitorId);
     } else {
       decrementPollingInterval(monitorId);
     }

@@ -53,28 +53,30 @@ public class AlertVerticle extends AbstractVerticle {
     var alertJson = createAlertJson(monitorId, profileId, value);
 
     if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_3)) {
-      addOrUpdateAlert(monitorAlertMap, profileId, alertJson, VariableConstants.CRITICAL);
+      addOrUpdateAlert( profileId, alertJson, VariableConstants.CRITICAL,monitorId);
       System.out.println("Critical alert generated");
     } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_2)) {
-      addOrUpdateAlert(monitorAlertMap, profileId, alertJson, VariableConstants.SEVERE);
+      addOrUpdateAlert(profileId, alertJson, VariableConstants.SEVERE,monitorId);
     } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_1)) {
-      addOrUpdateAlert(monitorAlertMap, profileId, alertJson, VariableConstants.WARNING);
+      addOrUpdateAlert( profileId, alertJson, VariableConstants.WARNING,monitorId);
     } else {
-      clearAlertIfExists(monitorAlertMap, profileId);
+      clearAlertIfExists(monitorAlertMap, profileId,monitorId);
     }
   }
 
-  private void addOrUpdateAlert(Map<Long, JsonObject> monitorAlertMap, Long profileId, JsonObject alertJson, String alertLevel) {
+  private void addOrUpdateAlert(Long profileId, JsonObject alertJson, String alertLevel,Long monitorId) {
     alertJson.put(VariableConstants.ALERT_LEVEL, alertLevel);
-    monitorAlertMap.put(profileId, alertJson);
+
+    CacheStore.updateAlert(monitorId,profileId,alertJson);
     insertAlert(alertJson.getLong(VariableConstants.MONITOR_ID),profileId,alertJson.getLong(VariableConstants.VALUE),alertLevel);
   }
 
-  private void clearAlertIfExists(Map<Long, JsonObject> monitorAlertMap, Long profileId) {
+  private void clearAlertIfExists(Map<Long, JsonObject> monitorAlertMap, Long profileId,Long monitorId) {
     monitorAlertMap.computeIfPresent(profileId, (key, alert) -> {
       alert.put(VariableConstants.CLEARED, true);
       return alert;
     });
+    CacheStore.clearAlert(monitorId,profileId);
   }
 
   private JsonObject createAlertJson(Long monitorId, Long profileId, Long value) {

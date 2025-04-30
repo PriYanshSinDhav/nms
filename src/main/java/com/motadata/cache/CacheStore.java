@@ -243,7 +243,7 @@ public class CacheStore extends AbstractVerticle {
   public static void decrementRemainingInterval(Long monitorId) {
     MONITOR_MAP.computeIfPresent(monitorId, (key, value) -> {
       value.put(VariableConstants.REMAINING_INTERVAL, value.getLong(VariableConstants.REMAINING_INTERVAL, 0L) - 10L);
-//      System.out.println(value);
+      System.out.println(value);
       return value;
     });
   }
@@ -254,7 +254,14 @@ public class CacheStore extends AbstractVerticle {
 
   }
 
-  public static void updateAlert(Long monitorId, Map<Long, JsonObject> monitorAlertMap) {
-    ALERT_MAP.replace(monitorId, monitorAlertMap);
+  public static void updateAlert(Long monitorId, Long profileId , JsonObject alertJson ) {
+    ALERT_MAP.computeIfAbsent(monitorId,key-> new ConcurrentHashMap<>() ).put(profileId,alertJson);
+  }
+
+  public static void clearAlert(Long monitorId, Long profileId  ) {
+    ALERT_MAP.computeIfPresent(monitorId,(key,value) -> {
+      value.get(profileId).put(VariableConstants.CLEARED,true);
+      return value;
+    });
   }
 }

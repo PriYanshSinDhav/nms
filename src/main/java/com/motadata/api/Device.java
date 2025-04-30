@@ -227,7 +227,6 @@ public class Device  {
             });
 
 
-
           }else {
             routingContext.json(JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR,"Error getting credential Profile"));
           }
@@ -312,11 +311,10 @@ public class Device  {
     return resultPromise.future();
   }
 
-  private  Future<Boolean> checkLogin(String username, String ip, String password) {
+  private Future<Boolean> checkLogin(String username, String ip, String password) {
     Promise<Boolean> resultPromise = Promise.promise();
 
     var vertx = MainVerticle.getVertx();
-
 
     vertx.executeBlocking(promise -> {
 
