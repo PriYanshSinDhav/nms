@@ -34,14 +34,19 @@ public class AlertVerticle extends AbstractVerticle {
       var profiles = CacheStore.getProfilesByMonitor(monitorId);
 
       for (Long profile : profiles) {
-        var profileObject = CacheStore.getProfile(profile);
-        var recordedValue = jsonObject.getString(profileObject.getString(VariableConstants.METRIC_VALUE));
+        try {
+          var profileObject = CacheStore.getProfile(profile);
+          var recordedValue = jsonObject.getString(profileObject.getString(VariableConstants.METRIC_VALUE));
+          var longValue = BigDecimal.valueOf(Double.parseDouble(recordedValue)).longValue();
+          System.out.println("recorded value " + recordedValue);
+          var monitorAlertMap = CacheStore.getAlertForMonitorId(monitorId);
+          processAlert(monitorAlertMap, profile, monitorId, longValue, profileObject);
 
-        var longValue = BigDecimal.valueOf(Double.parseDouble(recordedValue)).longValue();
+        } catch (Exception e) {
+          System.out.println(e);
+        }
 
-        System.out.println("recorded value " + recordedValue);
-        var monitorAlertMap = CacheStore.getAlertForMonitorId(monitorId);
-        processAlert(monitorAlertMap, profile, monitorId, longValue, profileObject);
+
 
       }
 
@@ -50,25 +55,34 @@ public class AlertVerticle extends AbstractVerticle {
   }
 
   private void processAlert(Map<Long, JsonObject> monitorAlertMap, Long profileId, Long monitorId, Long value, JsonObject profileObject) {
-    var alertJson = createAlertJson(monitorId, profileId, value);
+    try{
+      var alertJson = createAlertJson(monitorId, profileId, value);
 
-    if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_3)) {
-      addOrUpdateAlert( profileId, alertJson, VariableConstants.CRITICAL,monitorId);
-      System.out.println("Critical alert generated");
-    } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_2)) {
-      addOrUpdateAlert(profileId, alertJson, VariableConstants.SEVERE,monitorId);
-    } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_1)) {
-      addOrUpdateAlert( profileId, alertJson, VariableConstants.WARNING,monitorId);
-    } else {
-      clearAlertIfExists(monitorAlertMap, profileId,monitorId);
+      if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_3)) {
+        addOrUpdateAlert( profileId, alertJson, VariableConstants.CRITICAL,monitorId);
+        System.out.println("Critical alert generated");
+      } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_2)) {
+        addOrUpdateAlert(profileId, alertJson, VariableConstants.SEVERE,monitorId);
+      } else if (value >= profileObject.getLong(VariableConstants.ALERT_LEVEL_1)) {
+        addOrUpdateAlert( profileId, alertJson, VariableConstants.WARNING,monitorId);
+      } else {
+        clearAlertIfExists(monitorAlertMap, profileId,monitorId);
+      }
+    } catch (Exception e) {
+      System.out.println(e);
     }
+
   }
 
   private void addOrUpdateAlert(Long profileId, JsonObject alertJson, String alertLevel,Long monitorId) {
-    alertJson.put(VariableConstants.ALERT_LEVEL, alertLevel);
+    try {
+      alertJson.put(VariableConstants.ALERT_LEVEL, alertLevel);
+      CacheStore.updateAlert(monitorId,profileId,alertJson);
+      insertAlert(alertJson.getLong(VariableConstants.MONITOR_ID),profileId,alertJson.getLong(VariableConstants.VALUE),alertLevel);
 
-    CacheStore.updateAlert(monitorId,profileId,alertJson);
-    insertAlert(alertJson.getLong(VariableConstants.MONITOR_ID),profileId,alertJson.getLong(VariableConstants.VALUE),alertLevel);
+    } catch (Exception e) {
+      System.out.println(e);
+    }
   }
 
   private void clearAlertIfExists(Map<Long, JsonObject> monitorAlertMap, Long profileId,Long monitorId) {
