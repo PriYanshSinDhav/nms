@@ -31,7 +31,7 @@ public class PollingVerticle extends AbstractVerticle {
   public void start()  {
 
 
-    client = DatabaseConfig.getDatabaseClient(vertx);
+    client = DatabaseConfig.getDatabaseClient();
     zContext = new ZContext();
     senderSocket = zContext.createSocket(SocketType.PUSH);
     senderSocket.connect("tcp://127.0.0.1:5555");
@@ -46,7 +46,7 @@ public class PollingVerticle extends AbstractVerticle {
     vertx.eventBus().localConsumer(EventBusConstants.POLL_MONITOR,e-> {
       var jsonObject = (JsonObject) e.body();
       handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID),jsonObject.getJsonObject("value") );
-    });
+    }).exceptionHandler(System.out::println);
 
   }
 
@@ -56,9 +56,11 @@ public class PollingVerticle extends AbstractVerticle {
     {
       while (true)
       {
+        System.out.println("test before " + Thread.currentThread().getName());
         try
         {
           var bytes = recieverSocket.recv();
+          System.out.println("test " + Thread.currentThread().getName());
 
           if (bytes != null && bytes.length > 0)
           {
@@ -134,8 +136,8 @@ public class PollingVerticle extends AbstractVerticle {
 
 
   private void fetchMetricsFromZMQ(String ip, String username, String password,Long monitorId) {
+
     senderSocket.send(new JsonObject().put(VariableConstants.MONITOR_ID,String.valueOf(monitorId)).put("ip", ip).put(VariableConstants.USERNAME, username).put(VariableConstants.PASSWORD, password).encode());
-//    return senderSocket.recvStr();
   }
 
 

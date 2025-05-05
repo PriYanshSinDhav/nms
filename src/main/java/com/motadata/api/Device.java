@@ -3,6 +3,7 @@ package com.motadata.api;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.motadata.cache.CacheStore;
+import com.motadata.database.DatabaseConfig;
 import com.motadata.nms.MainVerticle;
 import com.motadata.utility.*;
 import io.vertx.core.Future;
@@ -19,12 +20,12 @@ import static com.motadata.constants.QueryConstants.*;
 public class Device  {
 
 
-  PgPool client;
+  private PgPool client;
 
 
 
-  public void init(Router router,PgPool client) {
-    this.client = client;
+  public void init(Router router) {
+    this.client = DatabaseConfig.getDatabaseClient();
     router.post("/provision").handler(this::provisionDevice);
     router.post("/create").handler(this::createDiscoverDevice);
     router.post("/retry/:id").handler(this::retryDiscoveringDevice);
@@ -163,7 +164,7 @@ public class Device  {
 
     }).onFailure(
       err -> {
-        routingContext.fail(500 , err);
+        routingContext.json( JsonObjectUtility.getResponseJsonObject(ResponseConstants.ERROR, err.getMessage()));
       }
     );
 

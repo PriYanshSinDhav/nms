@@ -17,13 +17,13 @@ import static com.motadata.constants.QueryConstants.ADD_ALERT_SQL;
 
 public class AlertVerticle extends AbstractVerticle {
 
-  PgPool client ;
+  private PgPool client ;
 
   @Override
   public void start() {
 
-    client = DatabaseConfig.getDatabaseClient(vertx);
-    vertx.eventBus().consumer(EventBusConstants.CHECK_AND_ADD_ALERT, message -> {
+    client = DatabaseConfig.getDatabaseClient();
+    vertx.eventBus().localConsumer(EventBusConstants.CHECK_AND_ADD_ALERT, message -> {
 
 
       var jsonObject = (JsonObject) message.body();
@@ -50,7 +50,7 @@ public class AlertVerticle extends AbstractVerticle {
 
       }
 
-    });
+    }).exceptionHandler(System.out::println);
 
   }
 

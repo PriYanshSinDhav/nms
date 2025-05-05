@@ -19,7 +19,7 @@ import java.util.List;
 
 public class DeviceType  {
 
-  PgPool client;
+  private PgPool client;
 
 
   public DeviceType() {
@@ -27,8 +27,8 @@ public class DeviceType  {
 
 
 
-  public void init(Router router,PgPool client) {
-    this.client = client;
+  public void init(Router router) {
+    this.client = DatabaseConfig.getDatabaseClient();
     router.post("/create").handler(this::createDeviceType);
     router.get("/get").handler(this::getDeviceType);
     router.post("/get").handler(this::getDeviceTypeWithPagination);

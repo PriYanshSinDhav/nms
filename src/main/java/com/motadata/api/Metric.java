@@ -1,6 +1,7 @@
 package com.motadata.api;
 
 import com.motadata.cache.CacheStore;
+import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -19,8 +20,8 @@ public class Metric  {
 
 
 
-  public void init(Router router,PgPool client) {
-    this.client = client;
+  public void init(Router router) {
+    this.client = DatabaseConfig.getDatabaseClient();
     router.post("/devicetype/get/:id").handler(this::getMetricsForDeviceType);
     router.post("/add").handler(this::addMetric);
 

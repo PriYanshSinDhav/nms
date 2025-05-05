@@ -13,12 +13,12 @@ import static com.motadata.constants.QueryConstants.ADD_MONITORING_DATA_SQL;
 
 public class MonitoringVerticle extends AbstractVerticle {
 
-  PgPool client ;
+  private PgPool client ;
 
   @Override
   public void start() {
 
-    client = DatabaseConfig.getDatabaseClient(vertx);
+    client = DatabaseConfig.getDatabaseClient();
     vertx.eventBus().localConsumer(EventBusConstants.ADD_METRIC_DETAILS,message -> {
 
       var json = (JsonObject)message.body();

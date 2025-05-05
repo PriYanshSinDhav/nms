@@ -1,5 +1,6 @@
 package com.motadata.api;
 
+import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -14,11 +15,11 @@ import static com.motadata.constants.QueryConstants.GET_ALL_ALERTS_BY_PROFILE;
 
 public class Alert  {
 
-  PgPool client ;
+  private PgPool client ;
 
 
-  public void init(Router router,PgPool client) {
-    this.client = client;
+  public void init(Router router) {
+    this.client = DatabaseConfig.getDatabaseClient();
     router.post("/monitor").handler(this::getAlertDetailsByMonitorId);
     router.post("/get").handler(this::getAllAlerts);
 

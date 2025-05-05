@@ -32,7 +32,7 @@ public class MonitorProfileRel extends AbstractVerticle {
   @Override
   public void start() throws Exception {
 
-    client = DatabaseConfig.getDatabaseClient(vertx);
+    client = DatabaseConfig.getDatabaseClient();
 
     router.get("/monitor/:id").handler(this::getMonitorsByProfileId);
     router.get("/profile/:id").handler(this::getProfilesByMonitorId);

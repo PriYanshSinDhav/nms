@@ -1,6 +1,7 @@
 package com.motadata.api;
 
 import com.motadata.cache.CacheStore;
+import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.*;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -17,13 +18,13 @@ import static com.motadata.constants.QueryConstants.*;
 public class Profile {
 
 
-  PgPool client;
+  private PgPool client;
 
 
 
-  public void init(Router router, PgPool client) {
+  public void init(Router router) {
 
-    this.client = client;
+    this.client = DatabaseConfig.getDatabaseClient();
 
     router.post("/create").handler(this::createProfile);
 

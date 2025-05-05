@@ -19,7 +19,7 @@ import static com.motadata.constants.QueryConstants.*;
 
 public class CacheStore extends AbstractVerticle {
 
-  PgPool client;
+  private PgPool client;
 
   private static final Map<Long, JsonObject> CREDENTIAL_MAP = new ConcurrentHashMap<>();
 
@@ -42,7 +42,7 @@ public class CacheStore extends AbstractVerticle {
 
   private void initializesMap() {
 
-    client = DatabaseConfig.getDatabaseClient(vertx);
+    client = DatabaseConfig.getDatabaseClient();
 
     initializeCredentialMap();
 
@@ -261,6 +261,7 @@ public class CacheStore extends AbstractVerticle {
   public static void clearAlert(Long monitorId, Long profileId  ) {
     ALERT_MAP.computeIfPresent(monitorId,(key,value) -> {
       value.get(profileId).put(VariableConstants.CLEARED,true);
+
       return value;
     });
   }

@@ -1,5 +1,6 @@
 package com.motadata.database;
 
+import com.motadata.nms.MainVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.pgclient.PgPool;
@@ -9,7 +10,7 @@ public class DatabaseConfig {
 
   private static PgPool client;
 
-  public  static PgPool getDatabaseClient(Vertx vertx){
+  public  static PgPool getDatabaseClient(){
 
     if (client == null) {
       PgConnectOptions connectOptions = new PgConnectOptions()
@@ -20,7 +21,7 @@ public class DatabaseConfig {
         .setPassword("root");
 
       PoolOptions poolOptions = new PoolOptions().setMaxSize(5);
-      client = PgPool.pool(vertx, connectOptions, poolOptions);
+      client = PgPool.pool(MainVerticle.getVertx() , connectOptions, poolOptions);
     }
     return client;
   }

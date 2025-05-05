@@ -1,6 +1,7 @@
 package com.motadata.api;
 
 import com.motadata.cache.CacheStore;
+import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -18,7 +19,7 @@ public class CredentialProfile {
 
   private static final String GET_CREDENTIAL_PAGE_SQL = "SELECT * FROM NMS_CREDENTIALS LIMIT $1 OFFSET $2";
 
-  PgPool client;
+  private PgPool client;
 
 
   public static final String RESPONSE_CREDENTIAL_NOT_FOUND = "Credential Profile not found";
@@ -26,8 +27,8 @@ public class CredentialProfile {
   public static final String RESPONSE_CREDENTIAL_DOES_NOT_EXIST = "Credential Profile does not exist";
 
 
-  public void init(Router router, PgPool client) {
-    this.client = client;
+  public void init(Router router) {
+    this.client = DatabaseConfig.getDatabaseClient();
     router.post("/create").handler(this::createCredentialProfile);
     router.post("/get").handler(this::getAllCredentialProfiles);
     router.get("/all").handler(this::getAllCredentialProfilesWithoutPagination);
