@@ -56,11 +56,9 @@ public class PollingVerticle extends AbstractVerticle {
     {
       while (true)
       {
-        System.out.println("test before " + Thread.currentThread().getName());
         try
         {
           var bytes = recieverSocket.recv();
-          System.out.println("test " + Thread.currentThread().getName());
 
           if (bytes != null && bytes.length > 0)
           {
