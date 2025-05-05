@@ -45,7 +45,7 @@ public class PollingVerticle extends AbstractVerticle {
 
     vertx.eventBus().localConsumer(EventBusConstants.POLL_MONITOR,e-> {
       var jsonObject = (JsonObject) e.body();
-      handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID),jsonObject.getJsonObject("value") );
+      handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID),jsonObject.getJsonObject(VariableConstants.VALUE) );
     }).exceptionHandler(System.out::println);
 
   }
@@ -138,6 +138,37 @@ public class PollingVerticle extends AbstractVerticle {
     senderSocket.send(new JsonObject().put(VariableConstants.MONITOR_ID,String.valueOf(monitorId)).put("ip", ip).put(VariableConstants.USERNAME, username).put(VariableConstants.PASSWORD, password).encode());
   }
 
+
+
+  @Override
+  public void stop(Promise<Void> stopPromise) {
+
+    System.out.println("Stopping PollingVerticle and releasing resources...");
+
+    try {
+      // Close ZeroMQ sockets safely
+      if (senderSocket != null) {
+        senderSocket.close();
+      }
+
+      if (recieverSocket != null) {
+        recieverSocket.close();
+      }
+
+      // Close the ZMQ context (terminates underlying threads)
+      if (zContext != null) {
+        zContext.close();
+      }
+
+
+
+      stopPromise.complete(); // Successfully released resources
+
+    } catch (Exception e) {
+      System.out.println(e);
+      stopPromise.fail(e); // Notify Vert.x if cleanup failed
+    }
+  }
 
 
 }

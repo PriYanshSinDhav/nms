@@ -16,7 +16,7 @@ public class MonitorVerticle extends AbstractVerticle {
 
     vertx.setPeriodic(10L * 1000L,handler-> {
       for (Map.Entry<Long, JsonObject> longJsonObjectEntry : CacheStore.getAllMonitors().entrySet()) {
-        vertx.eventBus().send(EventBusConstants.POLL_MONITOR,new JsonObject().put(VariableConstants.MONITOR_ID,longJsonObjectEntry.getKey()).put("value",longJsonObjectEntry.getValue()) );
+        vertx.eventBus().send(EventBusConstants.POLL_MONITOR,new JsonObject().put(VariableConstants.MONITOR_ID,longJsonObjectEntry.getKey()).put(VariableConstants.VALUE,longJsonObjectEntry.getValue()) );
 
       }
     });
