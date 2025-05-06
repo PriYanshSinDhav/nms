@@ -19,19 +19,21 @@ public class AlertVerticle extends AbstractVerticle {
 
   private PgPool client ;
 
+
   @Override
-  public void start() {
+  public void start(Promise<Void> startPromise)  {
+    try{
 
-    client = DatabaseConfig.getDatabaseClient();
-    vertx.eventBus().localConsumer(EventBusConstants.CHECK_AND_ADD_ALERT, message -> {
-
-
-      var jsonObject = (JsonObject) message.body();
-      var monitorId = Long.valueOf(jsonObject.getString(VariableConstants.MONITOR_ID));
+      client = DatabaseConfig.getDatabaseClient();
+      vertx.eventBus().localConsumer(EventBusConstants.CHECK_AND_ADD_ALERT, message -> {
 
 
+        var jsonObject = (JsonObject) message.body();
+        var monitorId = Long.valueOf(jsonObject.getString(VariableConstants.MONITOR_ID));
 
-      var profiles = CacheStore.getProfilesByMonitor(monitorId);
+
+
+        var profiles = CacheStore.getProfilesByMonitor(monitorId);
 
       for (Long profile : profiles) {
         try {
@@ -50,8 +52,11 @@ public class AlertVerticle extends AbstractVerticle {
 
       }
 
-    }).exceptionHandler(System.out::println);
-
+      }).exceptionHandler(System.out::println);
+      startPromise.complete();
+    } catch (Exception e) {
+      startPromise.fail(e);
+    }
   }
 
   private void processAlert(Map<Long, JsonObject> monitorAlertMap, Long profileId, Long monitorId, Long value, JsonObject profileObject) {

@@ -3,10 +3,16 @@ package com.motadata.nms;
 import com.motadata.api.*;
 import com.motadata.cache.CacheStore;
 import com.motadata.polling.PollingVerticle;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class MainVerticle {
 
@@ -21,20 +27,57 @@ public class MainVerticle {
     router.route().handler(BodyHandler.create());
 
 
+//    vertx.deployVerticle(new APIServer(router))
+//      .compose(id -> vertx.deployVerticle(new CacheStore()))
+//      .compose(id -> vertx.deployVerticle(PollingVerticle.class.getName(),new DeploymentOptions().setInstances(2)))
+//      .compose(id -> vertx.deployVerticle(new MonitorVerticle()))
+//      .compose(id-> vertx.deployVerticle(new AlertVerticle()))
+//      .compose(id-> vertx.deployVerticle(new MonitoringVerticle()))
+//      .compose(id -> vertx.createHttpServer()
+//        .requestHandler(router)
+//        .listen(8080))
+//      .onSuccess(server -> {
+//        System.out.println("HTTP server started on port 8080");
+//      })
+//      .onFailure(err-> System.out.println(err));
+
+
+
+    List<String> deployedVerticles = new ArrayList<>();
+
     vertx.deployVerticle(new APIServer(router))
+      .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.deployVerticle(new CacheStore()))
-      .compose(id -> vertx.deployVerticle(PollingVerticle.class.getName(),new DeploymentOptions().setInstances(2)))
+      .onSuccess(id -> deployedVerticles.add(id))
+      .compose(id -> vertx.deployVerticle(PollingVerticle.class.getName(),
+        new DeploymentOptions().setInstances(2)))
+      .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.deployVerticle(new MonitorVerticle()))
-      .compose(id-> vertx.deployVerticle(new AlertVerticle()))
-      .compose(id-> vertx.deployVerticle(new MonitoringVerticle()))
+      .onSuccess(id -> deployedVerticles.add(id))
+      .compose(id -> vertx.deployVerticle(new AlertVerticle()))
+      .onSuccess(id -> deployedVerticles.add(id))
+      .compose(id -> vertx.deployVerticle(new MonitoringVerticle()))
+      .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.createHttpServer()
         .requestHandler(router)
         .listen(8080))
       .onSuccess(server -> {
         System.out.println("HTTP server started on port 8080");
       })
-      .onFailure(err-> System.out.println(err));
+      .onFailure(err -> {
+        System.err.println("Startup failed: " + err.getMessage());
 
+        System.out.println(deployedVerticles);
+        List<Future> undeployFutures = deployedVerticles.stream()
+          .map(vertx::undeploy)
+          .collect(Collectors.toList());
+
+        CompositeFuture.all(undeployFutures)
+          .onComplete(ar -> {
+            System.out.println("All deployed verticles undeployed. Exiting...");
+            System.exit(1);
+          });
+      });
 
   }
 

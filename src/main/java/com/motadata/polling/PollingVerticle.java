@@ -28,26 +28,32 @@ public class PollingVerticle extends AbstractVerticle {
   private ZMQ.Socket  recieverSocket;
 
   @Override
-  public void start()  {
+  public void start(Promise<Void> startPromise)  {
 
 
-    client = DatabaseConfig.getDatabaseClient();
-    zContext = new ZContext();
-    senderSocket = zContext.createSocket(SocketType.PUSH);
-    senderSocket.connect("tcp://127.0.0.1:5555");
+    try {
 
-    recieverSocket = zContext.createSocket(SocketType.PULL);
-    recieverSocket.connect("tcp://127.0.0.1:5556");
+      client = DatabaseConfig.getDatabaseClient();
+      zContext = new ZContext();
+      senderSocket = zContext.createSocket(SocketType.PUSH);
+      senderSocket.connect("tcp://127.0.0.1:5555");
 
-;
+      recieverSocket = zContext.createSocket(SocketType.PULL);
+      recieverSocket.connect("tcp://127.0.0.1:5556");
 
-    getMetrics();
+      ;
 
-    vertx.eventBus().localConsumer(EventBusConstants.POLL_MONITOR,e-> {
+      getMetrics();
+
+      vertx.eventBus().localConsumer(EventBusConstants.POLL_MONITOR,e-> {
       var jsonObject = (JsonObject) e.body();
-      handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID),jsonObject.getJsonObject(VariableConstants.VALUE) );
+        handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID),jsonObject.getJsonObject(VariableConstants.VALUE) );
     }).exceptionHandler(System.out::println);
-
+      System.out.println("polling verticle");
+      startPromise.complete();
+    } catch (Exception e) {
+      startPromise.fail(e);
+    }
   }
 
   private void getMetrics(){
@@ -67,10 +73,17 @@ public class PollingVerticle extends AbstractVerticle {
             System.out.println(metrics);
             JsonObject jsonObject = new JsonObject(metrics);
 
-            jsonObject.mergeIn(new JsonObject(jsonObject.getString("output"))).remove("output");
+            try {
+              JsonObject outputJson = new JsonObject(jsonObject.getString("output"));
+              jsonObject.mergeIn(outputJson).remove("output");
+              vertx.eventBus().send(EventBusConstants.ADD_METRIC_DETAILS,jsonObject);
+              vertx.eventBus().send(EventBusConstants.CHECK_AND_ADD_ALERT,jsonObject);
+            } catch (Exception e) {
+              System.err.println("Invalid output field in ZMQ message: " + jsonObject.getString("output"));
+              return;
+            }
 
-            vertx.eventBus().send(EventBusConstants.ADD_METRIC_DETAILS,jsonObject);
-            vertx.eventBus().send(EventBusConstants.CHECK_AND_ADD_ALERT,jsonObject);
+
 
           }
         }
@@ -86,13 +99,6 @@ public class PollingVerticle extends AbstractVerticle {
 
   }
 
-  private void fetchMonitorMap() {
-
-    System.out.println("in fetch monitor map");
-    Map<Long, JsonObject> monitorMap = CacheStore.getAllMonitors();
-    monitorMap.forEach(this::handleMonitorEntry);
-
-  }
 
 
   private void handleMonitorEntry(Long monitorId, JsonObject monitorData) {
@@ -135,7 +141,12 @@ public class PollingVerticle extends AbstractVerticle {
 
   private void fetchMetricsFromZMQ(String ip, String username, String password,Long monitorId) {
 
-    senderSocket.send(new JsonObject().put(VariableConstants.MONITOR_ID,String.valueOf(monitorId)).put("ip", ip).put(VariableConstants.USERNAME, username).put(VariableConstants.PASSWORD, password).encode());
+    try {
+      senderSocket.send(new JsonObject().put(VariableConstants.MONITOR_ID,String.valueOf(monitorId)).put("ip", ip).put(VariableConstants.USERNAME, username).put(VariableConstants.PASSWORD, password).encode());
+
+    } catch (Exception e) {
+      System.out.println(e);
+    }
   }
 
 
@@ -155,18 +166,17 @@ public class PollingVerticle extends AbstractVerticle {
         recieverSocket.close();
       }
 
-      // Close the ZMQ context (terminates underlying threads)
       if (zContext != null) {
         zContext.close();
       }
 
 
 
-      stopPromise.complete(); // Successfully released resources
+      stopPromise.complete();
 
     } catch (Exception e) {
       System.out.println(e);
-      stopPromise.fail(e); // Notify Vert.x if cleanup failed
+      stopPromise.fail(e);
     }
   }
 

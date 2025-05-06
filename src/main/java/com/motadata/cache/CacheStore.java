@@ -4,6 +4,8 @@ import com.motadata.database.DatabaseConfig;
 import com.motadata.utility.DatabaseConstants;
 import com.motadata.utility.VariableConstants;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.pgclient.PgPool;
@@ -34,28 +36,20 @@ public class CacheStore extends AbstractVerticle {
   private static final Map<Long, Map<Long, JsonObject>> ALERT_MAP = new ConcurrentHashMap<>();
 
 
+
   @Override
-  public void start()  {
-    initializesMap();
-  }
-
-
-  private void initializesMap() {
-
+  public void start(Promise<Void> startPromise)  {
     client = DatabaseConfig.getDatabaseClient();
 
-    initializeCredentialMap();
-
-    initializeMonitorMap();
-
-    initializeProfileMap();
-
-    initializeMetricMap();
-
-    initializeMonitorProfileRelMap();
+    System.out.println("cache verticle");
+    CompositeFuture.all(initializeCredentialMap(),initializeMonitorMap(),initializeProfileMap(),
+      initializeMetricMap(),initializeMonitorProfileRelMap()).onSuccess(ok -> startPromise.complete())
+      .onFailure(startPromise::fail);;
   }
 
-  private void initializeMonitorProfileRelMap() {
+
+  private Future<?> initializeMonitorProfileRelMap() {
+    Promise<Void> promise = Promise.promise();
     client.preparedQuery(GET_MONITOR_PROFILE_REL_SQL).execute().onSuccess(res -> {
 
       res.forEach(row -> {
@@ -63,29 +57,33 @@ public class CacheStore extends AbstractVerticle {
         MONITOR_PROFILE_REL_MAP.computeIfAbsent(row.getLong(DatabaseConstants.MONITOR_ID), value -> new ArrayList<>()).add(row.getLong(DatabaseConstants.PROFILE_ID));
 
       });
+      promise.complete();
+    }).onFailure(promise::fail);
 
-    });
-
+    return promise.future();
   }
 
-  private void initializeMetricMap() {
+  private Future<?> initializeMetricMap() {
+    Promise<Void> promise = Promise.promise();
     client.preparedQuery(GET_METRIC_SQL).execute().onSuccess(rows -> {
       rows.forEach(row -> METRIC_MAP
-        .put(row.getLong(DatabaseConstants.METRIC_ID),
+        .computeIfAbsent(row.getLong(DatabaseConstants.METRIC_ID),value ->
           new JsonObject()
             .put(VariableConstants.NAME, row.getString(DatabaseConstants.NAME))
             .put(VariableConstants.DEVICE_TYPE_ID, row.getLong(DatabaseConstants.DEVICE_TYPE_ID))
             .put(VariableConstants.ALERTABLE, row.getBoolean(DatabaseConstants.ALERTABLE))
             .put(VariableConstants.METRIC_VALUE, row.getString(DatabaseConstants.METRIC_VALUE))
         ));
-
-    }).onFailure(System.out::println);
+        promise.complete();
+    }).onFailure(promise::fail);
+    return promise.future();
   }
 
-  private void initializeProfileMap() {
+  private Future<?> initializeProfileMap() {
+    Promise<Void> promise = Promise.promise();
     client.preparedQuery(GET_PROFILES_SQL).execute().onSuccess(rows -> {
 
-      rows.forEach(row -> PROFILE_MAP.put(row.getLong(DatabaseConstants.PROFILE_ID), new JsonObject()
+      rows.forEach(row -> PROFILE_MAP.computeIfAbsent(row.getLong(DatabaseConstants.PROFILE_ID),value->  new JsonObject()
         .put(VariableConstants.NAME, row.getString(DatabaseConstants.NAME))
         .put(VariableConstants.METRIC_ID, row.getLong(DatabaseConstants.METRIC_ID))
         .put(VariableConstants.METRIC_VALUE, row.getString(DatabaseConstants.METRIC_VALUE))
@@ -93,29 +91,41 @@ public class CacheStore extends AbstractVerticle {
         .put(VariableConstants.ALERT_LEVEL_2, row.getLong(DatabaseConstants.ALERT_LEVEL_2))
         .put(VariableConstants.ALERT_LEVEL_3, row.getLong(DatabaseConstants.ALERT_LEVEL_3))
       ));
-    }).onFailure(err -> {
-      System.out.println(err);
+      promise.complete();
+    }).onFailure(promise::fail);
 
-    });
+    return promise.future();
   }
 
 
-  private void initializeMonitorMap() {
+  private Future<?> initializeMonitorMap() {
 
-    client.preparedQuery(QUERY_GET_ALL_MONITORS).execute().onSuccess(res -> res.forEach(this::accept));
+      Promise<Void> promise = Promise.promise();
+    client.preparedQuery(QUERY_GET_ALL_MONITORS).execute().onSuccess(res -> {
+      res.forEach(this::accept);
+      promise.complete();
+    }).onFailure(promise::fail);
 
+    return promise.future();
   }
 
-  private void initializeCredentialMap() {
+
+  private Future<Void> initializeCredentialMap() {
+    Promise<Void> promise = Promise.promise();
 
     client.preparedQuery(QUERY_SELECT_ALL_CREDENTIALS).execute()
       .onSuccess(rows -> {
-        rows.forEach(row -> CREDENTIAL_MAP.put(row.getLong(DatabaseConstants.ID),
-          new JsonObject().put(VariableConstants.USERNAME, row.getValue(VariableConstants.USERNAME))
-            .put(VariableConstants.PASSWORD, row.getValue(VariableConstants.PASSWORD)
-            )));
+        rows.forEach(row -> CREDENTIAL_MAP.put(
+          row.getLong(DatabaseConstants.ID),
+          new JsonObject()
+            .put(VariableConstants.USERNAME, row.getValue(VariableConstants.USERNAME))
+            .put(VariableConstants.PASSWORD, row.getValue(VariableConstants.PASSWORD))
+        ));
+        promise.complete();
+      })
+      .onFailure(promise::fail);
 
-      });
+    return promise.future();
   }
 
 
@@ -138,7 +148,7 @@ public class CacheStore extends AbstractVerticle {
   }
 
   private void accept(Row r) {
-    MONITOR_MAP.put(r.getLong(DatabaseConstants.MONITOR_ID),
+    MONITOR_MAP.computeIfAbsent(r.getLong(DatabaseConstants.MONITOR_ID),value ->
       new JsonObject()
         .put(VariableConstants.CREDENTIAL_ID, r.getValue(DatabaseConstants.CREDENTIAL_ID))
         .put(VariableConstants.IP_ADDRESS, r.getValue(DatabaseConstants.IP_ADDRESS))
@@ -161,10 +171,10 @@ public class CacheStore extends AbstractVerticle {
   }
 
   public static JsonObject getMonitor(Long id) {
-
-    return new JsonObject().mergeIn(MONITOR_MAP.get(id));
-
+    JsonObject original = MONITOR_MAP.get(id);
+    return original != null ? original.copy() : null;
   }
+
 
   public static ConcurrentHashMap<Long, JsonObject> getAllMonitors() {
 

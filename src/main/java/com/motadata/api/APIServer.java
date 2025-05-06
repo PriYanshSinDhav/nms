@@ -2,6 +2,7 @@ package com.motadata.api;
 
 import com.motadata.database.DatabaseConfig;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Promise;
 import io.vertx.ext.web.Router;
 import io.vertx.pgclient.PgPool;
 
@@ -17,10 +18,15 @@ public class APIServer extends AbstractVerticle {
   }
 
   @Override
-  public void start()  {
+  public void start(Promise<Void> startPromise)  {
 
-
-    addRouters();
+    try {
+      addRouters();
+      System.out.println("api verticle");
+      startPromise.complete();
+    } catch (Exception e) {
+      startPromise.fail(e);
+    }
   }
 
   private void addRouters() {
