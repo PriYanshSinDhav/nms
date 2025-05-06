@@ -28,37 +28,23 @@ public class MainVerticle {
     router.route().handler(BodyHandler.create());
 
 
-//    vertx.deployVerticle(new APIServer(router))
-//      .compose(id -> vertx.deployVerticle(new CacheStore()))
-//      .compose(id -> vertx.deployVerticle(PollingVerticle.class.getName(),new DeploymentOptions().setInstances(2)))
-//      .compose(id -> vertx.deployVerticle(new MonitorVerticle()))
-//      .compose(id-> vertx.deployVerticle(new AlertVerticle()))
-//      .compose(id-> vertx.deployVerticle(new MonitoringVerticle()))
-//      .compose(id -> vertx.createHttpServer()
-//        .requestHandler(router)
-//        .listen(8080))
-//      .onSuccess(server -> {
-//        System.out.println("HTTP server started on port 8080");
-//      })
-//      .onFailure(err-> System.out.println(err));
-
 
 
     List<String> deployedVerticles = new ArrayList<>();
 
     vertx.deployVerticle(new APIServer(router))
-      .onSuccess(id -> deployedVerticles.add(id))
+      .onSuccess(deployedVerticles::add)
       .compose(id -> vertx.deployVerticle(new CacheStore()))
-      .onSuccess(id -> deployedVerticles.add(id))
+      .onSuccess(deployedVerticles::add)
       .compose(id -> vertx.deployVerticle(new MonitorVerticle()))
-      .onSuccess(id -> deployedVerticles.add(id))
+      .onSuccess(deployedVerticles::add)
       .compose(id -> vertx.deployVerticle(new AlertVerticle()))
-      .onSuccess(id -> deployedVerticles.add(id))
+      .onSuccess(deployedVerticles::add)
       .compose(id -> vertx.deployVerticle(new MonitoringVerticle()))
-      .onSuccess(id -> deployedVerticles.add(id))
+      .onSuccess(deployedVerticles::add)
       .compose(id -> vertx.deployVerticle(PollingVerticle.class.getName(),
         new DeploymentOptions().setInstances(2)))
-      .onSuccess(id -> deployedVerticles.add(id))
+      .onSuccess(deployedVerticles::add)
       .compose(id -> vertx.createHttpServer()
         .requestHandler(router)
         .listen(8080))
