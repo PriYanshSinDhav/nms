@@ -25,10 +25,10 @@ public class PollingVerticle extends AbstractVerticle {
 
   private ZContext zContext;
   private ZMQ.Socket senderSocket;
-  private ZMQ.Socket  recieverSocket;
+  private ZMQ.Socket recieverSocket;
 
   @Override
-  public void start(Promise<Void> startPromise)  {
+  public void start(Promise<Void> startPromise) {
 
 
     try {
@@ -45,29 +45,25 @@ public class PollingVerticle extends AbstractVerticle {
 
       getMetrics();
 
-      vertx.eventBus().localConsumer(EventBusConstants.POLL_MONITOR,e-> {
-      var jsonObject = (JsonObject) e.body();
-        handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID),jsonObject.getJsonObject(VariableConstants.VALUE) );
-    }).exceptionHandler(System.out::println);
-      System.out.println("polling verticle");
+      vertx.eventBus().localConsumer(EventBusConstants.POLL_MONITOR, e -> {
+        var jsonObject = (JsonObject) e.body();
+        handleMonitorEntry(jsonObject.getLong(VariableConstants.MONITOR_ID), jsonObject.getJsonObject(VariableConstants.VALUE));
+      }).exceptionHandler(System.out::println);
       startPromise.complete();
     } catch (Exception e) {
       startPromise.fail(e);
     }
   }
 
-  private void getMetrics(){
+  private void getMetrics() {
 
     new Thread(() ->
     {
-      while (true)
-      {
-        try
-        {
+      while (true) {
+        try {
           var bytes = recieverSocket.recv();
 
-          if (bytes != null && bytes.length > 0)
-          {
+          if (bytes != null && bytes.length > 0) {
             String metrics = new String(bytes);
 
             System.out.println(metrics);
@@ -76,23 +72,19 @@ public class PollingVerticle extends AbstractVerticle {
             try {
               JsonObject outputJson = new JsonObject(jsonObject.getString("output"));
               jsonObject.mergeIn(outputJson).remove("output");
-              vertx.eventBus().send(EventBusConstants.ADD_METRIC_DETAILS,jsonObject);
-              vertx.eventBus().send(EventBusConstants.CHECK_AND_ADD_ALERT,jsonObject);
+              vertx.eventBus().send(EventBusConstants.ADD_METRIC_DETAILS, jsonObject);
+              vertx.eventBus().send(EventBusConstants.CHECK_AND_ADD_ALERT, jsonObject);
             } catch (Exception e) {
               System.err.println("Invalid output field in ZMQ message: " + jsonObject.getString("output"));
               return;
             }
 
 
-
           }
-        }
-        catch (Exception exception)
-        {
+        } catch (Exception exception) {
           System.out.println(exception);
         }
       }
-
 
 
     }, "").start();
@@ -100,13 +92,11 @@ public class PollingVerticle extends AbstractVerticle {
   }
 
 
-
   private void handleMonitorEntry(Long monitorId, JsonObject monitorData) {
+    decrementPollingInterval(monitorId);
     if (CacheStore.shouldPoll(monitorId)) {
       processPolling(monitorId, monitorData);
       CacheStore.resetRemainingInterval(monitorId);
-    } else {
-      decrementPollingInterval(monitorId);
     }
   }
 
@@ -121,17 +111,14 @@ public class PollingVerticle extends AbstractVerticle {
   }
 
 
-
-
   private void executeMetricFetching(Long monitorId, JsonObject monitorData, JsonObject credentialResponse) {
     String username = credentialResponse.getString(VariableConstants.USERNAME);
     String password = credentialResponse.getString(VariableConstants.PASSWORD);
     String ipAddress = monitorData.getString(VariableConstants.IP_ADDRESS);
 
-    fetchMetricsFromZMQ(ipAddress, username, password,monitorId);
+    fetchMetricsFromZMQ(ipAddress, username, password, monitorId);
 
   }
-
 
 
   private void decrementPollingInterval(Long monitorId) {
@@ -139,16 +126,15 @@ public class PollingVerticle extends AbstractVerticle {
   }
 
 
-  private void fetchMetricsFromZMQ(String ip, String username, String password,Long monitorId) {
+  private void fetchMetricsFromZMQ(String ip, String username, String password, Long monitorId) {
 
     try {
-      senderSocket.send(new JsonObject().put(VariableConstants.MONITOR_ID,String.valueOf(monitorId)).put("ip", ip).put(VariableConstants.USERNAME, username).put(VariableConstants.PASSWORD, password).encode());
+      senderSocket.send(new JsonObject().put(VariableConstants.MONITOR_ID, String.valueOf(monitorId)).put("ip", ip).put(VariableConstants.USERNAME, username).put(VariableConstants.PASSWORD, password).encode());
 
     } catch (Exception e) {
       System.out.println(e);
     }
   }
-
 
 
   @Override

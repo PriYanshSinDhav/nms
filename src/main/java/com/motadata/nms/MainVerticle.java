@@ -2,6 +2,7 @@ package com.motadata.nms;
 
 import com.motadata.api.*;
 import com.motadata.cache.CacheStore;
+import com.motadata.database.DatabaseConfig;
 import com.motadata.polling.PollingVerticle;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
@@ -49,14 +50,14 @@ public class MainVerticle {
       .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.deployVerticle(new CacheStore()))
       .onSuccess(id -> deployedVerticles.add(id))
-      .compose(id -> vertx.deployVerticle(PollingVerticle.class.getName(),
-        new DeploymentOptions().setInstances(2)))
-      .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.deployVerticle(new MonitorVerticle()))
       .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.deployVerticle(new AlertVerticle()))
       .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.deployVerticle(new MonitoringVerticle()))
+      .onSuccess(id -> deployedVerticles.add(id))
+      .compose(id -> vertx.deployVerticle(PollingVerticle.class.getName(),
+        new DeploymentOptions().setInstances(2)))
       .onSuccess(id -> deployedVerticles.add(id))
       .compose(id -> vertx.createHttpServer()
         .requestHandler(router)
@@ -66,6 +67,19 @@ public class MainVerticle {
       })
       .onFailure(err -> {
         System.err.println("Startup failed: " + err.getMessage());
+
+        var client = DatabaseConfig.getDatabaseClient();
+        if (client != null) {
+          client.close().onComplete(ar -> {
+            if (ar.succeeded()) {
+              System.out.println("Database client closed successfully .");
+
+            } else {
+              System.out.println("Error closing database client: " + ar.cause().getMessage());
+
+            }
+          });
+        }
 
         System.out.println(deployedVerticles);
         List<Future> undeployFutures = deployedVerticles.stream()

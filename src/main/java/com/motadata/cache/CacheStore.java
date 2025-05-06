@@ -41,7 +41,6 @@ public class CacheStore extends AbstractVerticle {
   public void start(Promise<Void> startPromise)  {
     client = DatabaseConfig.getDatabaseClient();
 
-    System.out.println("cache verticle");
     CompositeFuture.all(initializeCredentialMap(),initializeMonitorMap(),initializeProfileMap(),
       initializeMetricMap(),initializeMonitorProfileRelMap()).onSuccess(ok -> startPromise.complete())
       .onFailure(startPromise::fail);;
@@ -235,6 +234,7 @@ public class CacheStore extends AbstractVerticle {
 
   public static boolean shouldPoll(Long monitorId) {
 
+    System.out.println(MONITOR_MAP.get(monitorId));
     return MONITOR_MAP.getOrDefault(monitorId, new JsonObject())
 
       .getLong(VariableConstants.REMAINING_INTERVAL, 0L)
@@ -253,7 +253,6 @@ public class CacheStore extends AbstractVerticle {
   public static void decrementRemainingInterval(Long monitorId) {
     MONITOR_MAP.computeIfPresent(monitorId, (key, value) -> {
       value.put(VariableConstants.REMAINING_INTERVAL, value.getLong(VariableConstants.REMAINING_INTERVAL, 0L) - 10L);
-      System.out.println(value);
       return value;
     });
   }
