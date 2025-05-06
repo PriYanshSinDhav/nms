@@ -22,7 +22,6 @@ public class APIServer extends AbstractVerticle {
 
     try {
       addRouters();
-      System.out.println("api verticle");
       startPromise.complete();
     } catch (Exception e) {
       startPromise.fail(e);
