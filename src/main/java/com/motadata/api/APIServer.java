@@ -1,10 +1,8 @@
 package com.motadata.api;
 
-import com.motadata.database.DatabaseConfig;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.ext.web.Router;
-import io.vertx.pgclient.PgPool;
 
 
 public class APIServer extends AbstractVerticle {

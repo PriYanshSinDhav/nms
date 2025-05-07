@@ -27,6 +27,9 @@ public class CacheStore extends AbstractVerticle {
 
   private static final Map<Long, JsonObject> MONITOR_MAP = new ConcurrentHashMap<>();
 
+  private static final Map<Long, Long> MONITOR_TIMER_MAP = new ConcurrentHashMap<>();
+
+
   private static final Map<Long, JsonObject> PROFILE_MAP = new ConcurrentHashMap<>();
 
   private static final Map<Long, JsonObject> METRIC_MAP = new ConcurrentHashMap<>();
@@ -154,19 +157,22 @@ public class CacheStore extends AbstractVerticle {
         .put(VariableConstants.POLLING_INTERVAL, r.getValue(DatabaseConstants.POLLING_INTERVAL))
         .put(VariableConstants.REMAINING_INTERVAL, r.getValue(DatabaseConstants.POLLING_INTERVAL))
     );
+
+    MONITOR_TIMER_MAP.computeIfAbsent(r.getLong(DatabaseConstants.MONITOR_ID),value-> r.getLong(DatabaseConstants.POLLING_INTERVAL));
   }
 
 
   public static void addMonitor(Long id, JsonObject monitor) {
 
-    MONITOR_MAP.putIfAbsent(id, monitor);
+    MONITOR_MAP.computeIfAbsent(id,value-> monitor);
+    MONITOR_TIMER_MAP.computeIfAbsent(id,value->  monitor.getLong(DatabaseConstants.POLLING_INTERVAL));
 
   }
 
   public static void updateMonitor(Long id, JsonObject monitor) {
 
     MONITOR_MAP.replace(id, monitor);
-
+    MONITOR_TIMER_MAP.computeIfPresent(id,(key,value)->  monitor.getLong(DatabaseConstants.POLLING_INTERVAL));
   }
 
   public static JsonObject getMonitor(Long id) {
@@ -234,25 +240,21 @@ public class CacheStore extends AbstractVerticle {
 
   public static boolean shouldPoll(Long monitorId) {
 
-    System.out.println(MONITOR_MAP.get(monitorId));
-    return MONITOR_MAP.getOrDefault(monitorId, new JsonObject())
-
-      .getLong(VariableConstants.REMAINING_INTERVAL, 0L)
-
-      .equals(0L);
+    System.out.println(MONITOR_TIMER_MAP.get(monitorId));
+    return MONITOR_TIMER_MAP.get(monitorId).equals(0L);
 
   }
 
   public static void resetRemainingInterval(Long monitorId) {
-    MONITOR_MAP.computeIfPresent(monitorId, (key, value) -> {
-      value.put(VariableConstants.REMAINING_INTERVAL, value.getLong(VariableConstants.POLLING_INTERVAL, 0L));
+    MONITOR_TIMER_MAP.computeIfPresent(monitorId, (key, value) -> {
+      value = MONITOR_MAP.get(monitorId).getLong(VariableConstants.POLLING_INTERVAL);
       return value;
     });
   }
 
   public static void decrementRemainingInterval(Long monitorId) {
-    MONITOR_MAP.computeIfPresent(monitorId, (key, value) -> {
-      value.put(VariableConstants.REMAINING_INTERVAL, value.getLong(VariableConstants.REMAINING_INTERVAL, 0L) - 10L);
+    MONITOR_TIMER_MAP.computeIfPresent(monitorId, (key, value) -> {
+      value = value - 10L;
       return value;
     });
   }
