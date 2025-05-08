@@ -148,7 +148,6 @@ public class Device  {
             CacheStore.addMonitor(monitorId,new JsonObject()
               .put(VariableConstants.MONITOR_ID,monitorId)
               .put(VariableConstants.POLLING_INTERVAL,pollingInterval)
-              .put(VariableConstants.REMAINING_INTERVAL,pollingInterval)
               .put(VariableConstants.IP_ADDRESS,ipAddress)
               .put(VariableConstants.CREDENTIAL_ID,credentialId));
 

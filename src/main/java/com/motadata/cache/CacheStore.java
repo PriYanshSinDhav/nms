@@ -155,7 +155,6 @@ public class CacheStore extends AbstractVerticle {
         .put(VariableConstants.CREDENTIAL_ID, r.getValue(DatabaseConstants.CREDENTIAL_ID))
         .put(VariableConstants.IP_ADDRESS, r.getValue(DatabaseConstants.IP_ADDRESS))
         .put(VariableConstants.POLLING_INTERVAL, r.getValue(DatabaseConstants.POLLING_INTERVAL))
-        .put(VariableConstants.REMAINING_INTERVAL, r.getValue(DatabaseConstants.POLLING_INTERVAL))
     );
 
     MONITOR_TIMER_MAP.computeIfAbsent(r.getLong(DatabaseConstants.MONITOR_ID),value-> r.getLong(DatabaseConstants.POLLING_INTERVAL));
