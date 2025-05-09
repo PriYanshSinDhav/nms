@@ -156,8 +156,6 @@ public class PollingVerticle extends AbstractVerticle {
         zContext.close();
       }
 
-
-
       stopPromise.complete();
 
     } catch (Exception e) {
